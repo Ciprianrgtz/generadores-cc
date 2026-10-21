@@ -1,0 +1,885 @@
+<title>Visor de Generadores</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: mesa de trabajo — partidas | plano | generador del elemento/concepto — con consolidado y fichas de análisis abajo */
+:root{
+  --bg:#EDEFEE; --panel:#F8F9F8; --canvas:#FCFDFC; --ink:#1B2127; --muted:#5D6870; --line:#CED4D7; --ctx:#C3CACE;
+  --accent:#1E5A86; --accent-soft:#DCE8F1; --on-accent:#FFFFFF;
+  --s-sin:#9AA3AA; --s-par:#D3921A; --s-ver:#3B78C2; --s-ok:#2B8753; --s-err:#C63F2C;
+  --f-ui:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#11161A; --panel:#172026; --canvas:#0E1317; --ink:#E2E7EA; --muted:#93A0A8; --line:#2B3740; --ctx:#3A4650;
+  --accent:#6FAEDC; --accent-soft:#1B3346; --on-accent:#0E1317;
+  --s-sin:#6E7980; --s-par:#E2A93A; --s-ver:#5C98DB; --s-ok:#45A870; --s-err:#E0604D; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#11161A; --panel:#172026; --canvas:#0E1317; --ink:#E2E7EA; --muted:#93A0A8; --line:#2B3740; --ctx:#3A4650;
+  --accent:#6FAEDC; --accent-soft:#1B3346; --on-accent:#0E1317;
+  --s-sin:#6E7980; --s-par:#E2A93A; --s-ver:#5C98DB; --s-ok:#45A870; --s-err:#E0604D; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-size:14px;line-height:1.4}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+header.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);background:var(--panel)}
+.brand h1{margin:0;font-size:20px;font-weight:700;letter-spacing:.01em;text-wrap:balance}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:11px;padding:1px 6px;border:1px dashed var(--muted);border-radius:3px;color:var(--muted);margin-left:6px;vertical-align:2px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-left:auto}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--canvas)}
+.seg button{border:0;background:transparent;color:var(--ink);font:600 13px var(--f-ui);padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.seg button:focus-visible,.btn:focus-visible,.grp:focus-visible,tr.row:focus-visible,.elrow:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+label.chk{display:inline-flex;gap:6px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--canvas);color:var(--ink);font:500 13px var(--f-ui);padding:6px 12px;border-radius:6px;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.link{border:0;background:transparent;color:var(--accent);padding:0;font-weight:600}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.app{display:grid;grid-template-columns:250px minmax(0,1fr) 380px;grid-template-areas:"left main side" "table table table" "fichas fichas fichas";gap:14px;padding-block:14px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+@media (max-width:1150px){.app{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"main main" "left side" "table table" "fichas fichas"}}
+@media (max-width:760px){.app{grid-template-columns:minmax(0,1fr);grid-template-areas:"main" "side" "left" "table" "fichas"}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:8px;min-width:0}
+.left{grid-area:left;display:flex;flex-direction:column;gap:14px;min-width:0}
+.main{grid-area:main;min-width:0;display:flex;flex-direction:column}
+.side{grid-area:side;min-width:0;max-height:calc(min(66vh,640px) + 46px);overflow:auto}
+@media (max-width:1150px){.side{max-height:none}}
+.tablewrap{grid-area:table;min-width:0}
+.fichas{grid-area:fichas;min-width:0}
+.sec{padding:12px 14px}
+.sec h2,.h2{margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.grp{display:block;width:100%;text-align:left;border:1px solid transparent;background:transparent;color:var(--ink);padding:8px;border-radius:6px;cursor:pointer;font:inherit}
+.grp:hover{background:var(--accent-soft)}
+.grp[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.grp .gh{display:flex;justify-content:space-between;gap:8px;font-weight:600}
+.grp .gh span:last-child{font:400 12px var(--f-mono);color:var(--muted)}
+.bar{display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:6px;background:var(--line)}
+.bar i{display:block;height:100%}
+.chips{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px;min-height:42px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:6px;color:var(--muted)}
+.chip b{color:var(--ink);font:500 12px var(--f-mono)}
+.hlbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;width:100%}
+.hlbar .mono{font-weight:500}
+.dot{width:11px;height:11px;border-radius:2px;display:inline-block;flex:none}
+.stage{position:relative;height:min(66vh,640px);min-height:360px;background:var(--canvas);border-radius:0 0 8px 8px;overflow:hidden}
+.stage svg{width:100%;height:100%;display:block;touch-action:manipulation}
+#v3d{position:absolute;inset:0;touch-action:none;cursor:grab}
+#v3d canvas{display:block}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;flex-direction:column;gap:6px}
+.zoom .btn{width:34px;height:34px;padding:0;font-size:18px}
+.hint3d{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--muted);background:var(--panel);padding:4px 8px;border-radius:4px;border:1px solid var(--line)}
+.side .sec{padding:14px}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.ph .code{font:500 18px var(--f-mono)}
+.pill{font:600 11px var(--f-ui);letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:99px;color:#fff;white-space:nowrap}
+.pill.acc{background:var(--accent);color:var(--on-accent)}
+.meta{color:var(--muted);font-size:13px;margin:6px 0 12px}
+.alert{border:1px solid var(--s-err);border-left-width:4px;border-radius:6px;padding:8px 10px;margin-bottom:12px;font-size:13px}
+.alert strong{color:var(--s-err)}
+.note{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:6px;padding:8px 10px;margin:12px 0 0;font-size:13px}
+.note .mono{font-size:12px}
+.gen{width:100%;border-collapse:collapse;font-size:13px}
+.gen td{padding:7px 4px;border-top:1px solid var(--line);vertical-align:top}
+.gen .q{text-align:right;white-space:nowrap;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.gen .f{display:block;font:12px var(--f-mono);color:var(--muted);margin-top:2px;word-break:break-word}
+.gen .c{font:12px var(--f-mono);color:var(--muted)}
+.gen tr.off td:not(:first-child){opacity:.5}
+.gen tfoot td{font-weight:600;border-top:2px solid var(--ink)}
+.elrow{cursor:pointer}
+.elrow:hover td,.elrow.hov td{background:var(--accent-soft)}
+.num{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--on-accent);font:600 11px var(--f-mono)}
+.mini{font:600 10px var(--f-ui);letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:4px;border:1px solid currentColor;white-space:nowrap}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.empty p{margin:0 0 10px;color:var(--muted)}
+.legend{display:grid;gap:6px;font-size:13px}
+.legend div{display:flex;gap:8px;align-items:center}
+.cruce{display:grid;grid-template-columns:18px 1fr;gap:2px 6px;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+.cruce:first-of-type{border-top:0}
+.cruce .ok{color:var(--s-ok);font-weight:700}
+.cruce .bad{color:var(--s-err);font-weight:700}
+.cruce small{grid-column:2;color:var(--muted);font:12px var(--f-mono)}
+.up{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;font-size:13px;color:var(--muted)}
+.up input{max-width:100%;min-width:0}
+.up input[type=range]{width:100%}
+.scroll{overflow-x:auto}
+table.cons{width:100%;border-collapse:collapse;font-size:13px;min-width:680px}
+table.cons th,table.steps th{font:600 11px var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+table.cons td{padding:7px 10px;border-bottom:1px solid var(--line)}
+table.cons td.n,table.steps td.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+table.cons tr.part td{font-weight:700;background:var(--bg);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+table.cons tr.row{cursor:pointer}
+table.cons tr.row:hover td{background:var(--accent-soft)}
+table.cons tr.row.hl td{background:var(--accent-soft);box-shadow:inset 0 -1px 0 var(--accent)}
+table.cons tr.row.hl td:first-child{box-shadow:inset 4px 0 0 var(--accent),inset 0 -1px 0 var(--accent)}
+.pend{color:var(--s-par)}
+.tablehead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:6px 16px;padding:12px 14px 4px}
+.tablehead p{margin:0;font-size:12px;color:var(--muted)}
+.fgrid{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;padding:8px 14px 16px}
+@media (max-width:900px){.fgrid{grid-template-columns:minmax(0,1fr)}}
+.form{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;align-content:start}
+.form fieldset{grid-column:1/-1;border:1px solid var(--line);border-radius:6px;padding:8px 10px 10px;margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.form legend{font:600 11px var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:0 4px}
+.form label{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.form input[type=number],.form select{width:100%;min-width:0;font:13px var(--f-mono);padding:5px 6px;border:1px solid var(--line);border-radius:4px;background:var(--canvas);color:var(--ink)}
+.form .full{grid-column:1/-1}
+.form label.chk{display:flex;font-size:13px}
+.src{grid-column:1/-1;font-size:12px;color:var(--muted);margin:0}
+table.steps{width:100%;border-collapse:collapse;font-size:13px;min-width:560px}
+table.steps td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+table.steps td.k{font:12px var(--f-mono);color:var(--muted);width:28px}
+table.steps td.fx{font:12px var(--f-mono);color:var(--muted)}
+table.steps tr.tot td{font-weight:700;background:var(--accent-soft)}
+table.steps tr.sub td{background:var(--bg);font:600 11px var(--f-ui);letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<header class="top">
+  <div class="brand">
+    <h1>Visor de Generadores <span class="tag">prototipo v2</span></h1>
+    <p>Casa prototipo · Planta baja · NPT ±0.00 · Losa +2.70 · datos de ejemplo</p>
+  </div>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Vista">
+      <button id="b2d" aria-pressed="true">Plano 2D</button>
+      <button id="b3d" aria-pressed="false">Modelo 3D</button>
+    </div>
+    <span id="opt2d"><label class="chk"><input type="checkbox" id="chkCodes" checked> Códigos</label></span>
+    <span id="opt3d" hidden>
+      <span class="seg" role="group" aria-label="Color 3D">
+        <button id="cMat" aria-pressed="true">Material</button>
+        <button id="cSt" aria-pressed="false">Estatus</button>
+      </span>
+      <label class="chk" style="margin-left:10px"><input type="checkbox" id="chkLosa" checked> Losa transparente</label>
+    </span>
+  </div>
+</header>
+
+<main class="app">
+  <aside class="left">
+    <section class="box sec">
+      <h2>Partidas</h2>
+      <div id="groups"></div>
+    </section>
+    <section class="box sec">
+      <h2>Cruces de validación</h2>
+      <div id="cruces"></div>
+    </section>
+    <section class="box sec">
+      <h2>Plano de calco</h2>
+      <div class="up">
+        <input type="file" id="fileUp" accept="image/*">
+        <label for="opUp">Opacidad del calco</label>
+        <input type="range" id="opUp" min="0" max="1" step="0.05" value="0.45">
+        <span>La imagen se ajusta a los ejes A–C / 1–4. En la versión real se calibra con una cota conocida o se lee el DXF.</span>
+      </div>
+    </section>
+  </aside>
+
+  <section class="main box">
+    <div class="chips" id="chips"></div>
+    <div class="stage" id="stage">
+      <div id="v2d" style="width:100%;height:100%"></div>
+      <div id="v3d" hidden></div>
+      <div class="zoom" id="zoom3d" hidden><button class="btn" id="zIn" aria-label="Acercar">+</button><button class="btn" id="zOut" aria-label="Alejar">−</button></div>
+      <div class="hint3d" id="hint3d" hidden>Arrastra para girar · rueda o +/− para zoom · clic para seleccionar</div>
+    </div>
+  </section>
+
+  <aside class="side box" id="side"></aside>
+
+  <section class="tablewrap box">
+    <div class="tablehead">
+      <h2 class="h2" style="margin:0">Generador consolidado</h2>
+      <p>Clic en un concepto: se seleccionan y numeran en el plano todos los elementos que lo generan</p>
+    </div>
+    <div class="scroll"><table class="cons" id="cons"></table></div>
+  </section>
+
+  <section class="fichas box" id="fichas">
+    <div class="tablehead">
+      <h2 class="h2" style="margin:0">Fichas de análisis unitario</h2>
+      <div class="seg" role="group" aria-label="Elemento tipo" id="fSeg"></div>
+    </div>
+    <div class="fgrid">
+      <form class="form" id="fForm" autocomplete="off"></form>
+      <div class="scroll"><table class="steps" id="fSteps"></table></div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+const H = 2.70, T = 0.15;
+const EJX = [["A",0],["B",5.70],["C",13.40]];
+const EJY = [["1",0],["2",3.20],["3",7.00],["4",10.40]];
+
+/* ---------- varilla: diámetro nominal y peso (kg/m) ---------- */
+const VAR = {"2.5":{d:7.9,kg:0.384},"3":{d:9.5,kg:0.557},"4":{d:12.7,kg:0.994},"5":{d:15.9,kg:1.552},"6":{d:19.1,kg:2.235}};
+const ACERO_CODE = {"2.5":"02.02.030","3":"02.02.031","4":"02.02.032","5":"02.02.033","6":"02.02.034"};
+
+const CAT = {
+  "02.01.001":{d:"Excavación a mano en cepa",u:"m³"},
+  "02.01.004":{d:"Plantilla de concreto f'c 100, 5 cm",u:"m²"},
+  "02.02.020":{d:"Concreto f'c 200 en zapata corrida",u:"m³"},
+  "02.02.030":{d:"Acero de refuerzo #2.5 fy 4200 en cimentación",u:"kg"},
+  "02.02.031":{d:"Acero de refuerzo #3 fy 4200 en cimentación",u:"kg"},
+  "02.02.032":{d:"Acero de refuerzo #4 fy 4200 en cimentación",u:"kg"},
+  "02.02.033":{d:"Acero de refuerzo #5 fy 4200 en cimentación",u:"kg"},
+  "02.02.034":{d:"Acero de refuerzo #6 fy 4200 en cimentación",u:"kg"},
+  "02.02.040":{d:"Cimbra común en costados de zapata",u:"m²"},
+  "02.03.001":{d:"Cadena de desplante CD-1 15×20",u:"ml"},
+  "03.02.015":{d:"Muro de block 15×20×40",u:"m²"},
+  "03.03.004":{d:"Castillo K-1 15×15, 4#3, E#2 @20",u:"ml"},
+  "03.04.002":{d:"Cadena de cerramiento CC-1 15×20",u:"ml"},
+  "04.01.001":{d:"Relleno compactado con material de banco",u:"m³"},
+  "04.01.010":{d:"Firme de concreto f'c 150, 10 cm",u:"m²"},
+  "04.01.012":{d:"Malla electrosoldada 6-6/10-10",u:"m²"},
+  "05.01.001":{d:"Cimbra de losa, acabado común",u:"m²"},
+  "05.01.005":{d:"Concreto f'c 250 en losa",u:"m³"},
+  "05.01.008":{d:"Acero de refuerzo fy 4200 en losa",u:"kg"},
+  "06.01.001":{d:"Aplanado de mortero exterior",u:"m²"},
+  "06.01.003":{d:"Aplanado de yeso interior",u:"m²"},
+  "06.02.004":{d:"Pintura vinílica, 2 manos",u:"m²"}
+};
+const PARTIDAS = {"02":"02 · Cimentación","03":"03 · Albañilería","04":"04 · Pisos y firmes","05":"05 · Estructura","06":"06 · Acabados"};
+const GROUPS = [["ZC","Cimentación"],["M","Muros"],["K","Castillos"],["F","Firmes"],["L","Losas"]];
+const GNAME = {ZC:"Zapata corrida",M:"Muro",K:"Castillo",F:"Firme",L:"Losa"};
+const TIPOS = {
+  M1:"Muro exterior M1 · block 15 + aplanado ext. + yeso int. + pintura + cadena",
+  M2:"Muro interior M2 · block 15 + yeso 2 caras + pintura 2 caras + cadena",
+  K1:"Castillo K-1 15×15, altura de niveles",
+  ZC1:"Zapata corrida ZC-1 · análisis por ficha (estructural)",
+  ZC2:"Zapata corrida ZC-2 · análisis por ficha (estructural)",
+  F1:"Firme F-1 · relleno 20 cm + firme 10 cm + malla",
+  L1:"Losa maciza L-1 · 12 cm · f'c 250"
+};
+const ST = {
+  sin:{n:"Sin cuantificar",v:"--s-sin",hex:0xB4BBC0},
+  par:{n:"Parcial",v:"--s-par",hex:0xE0A63A},
+  ver:{n:"Por verificar",v:"--s-ver",hex:0x5A93D4},
+  ok:{n:"Verificado",v:"--s-ok",hex:0x4CAF7A},
+  err:{n:"Conflicto",v:"--s-err",hex:0xD9533F}
+};
+const ST_ORDER = ["ok","ver","par","sin","err"];
+
+/* ---------- fichas de análisis unitario (datos del estructural) ---------- */
+const FICHAS = {
+  ZC1:{n:"ZC-1",src:"Estructural: ZC-1 0.80 × 0.20 · transversal #4 @15 · longitudinal #3 @20",B:0.80,e:0.20,rec:0.05,g:0.10,prof:0.80,ld:"3",ls:0.20,td:"4",ts:0.15,tras:40,cimbra:false,alam:3},
+  ZC2:{n:"ZC-2",src:"Estructural: ZC-2 0.60 × 0.15 · transversal #3 @20 · longitudinal #3 @20",B:0.60,e:0.15,rec:0.05,g:0.10,prof:0.80,ld:"3",ls:0.20,td:"3",ts:0.20,tras:40,cimbra:false,alam:3}
+};
+const ceilS = x => Math.ceil(x - 1e-9);
+const r2 = n => Math.round((n+Number.EPSILON)*100)/100;
+const fmt = n => r2(n).toLocaleString("es-MX",{minimumFractionDigits:2,maximumFractionDigits:2});
+const f2 = n => Number(n).toFixed(2);
+function ficha(t){
+  const F = FICHAS[t], vL = VAR[F.ld], vT = VAR[F.td];
+  const nL = ceilS((F.B-2*F.rec)/F.ls) + 1;
+  const tras = (F.tras*vL.d/1000)/12;
+  const kgL = r2(nL*1.00*vL.kg*(1+tras));
+  const nT = 1/F.ts;
+  const lenT = r2(F.B-2*F.rec+2*F.g);
+  const kgT = r2(nT*lenT*vT.kg);
+  const kgMl = r2(kgL+kgT);
+  const acero = {}; acero[F.ld]=(acero[F.ld]||0)+kgL; acero[F.td]=(acero[F.td]||0)+kgT;
+  const conc = r2(F.B*F.e), plant = r2(F.B), exc = r2(F.B*F.prof), cimb = F.cimbra?r2(2*F.e):0, alam = r2(kgMl*F.alam/100);
+  const steps = [
+    ["sub","Acero longitudinal (corre a lo largo, repartido en el ancho)"],
+    ["1",`Barras #${F.ld} @${f2(F.ls)} en ${f2(F.B)} m`,`⌈(${f2(F.B)} − 2×${f2(F.rec)}) ÷ ${f2(F.ls)}⌉ + 1`,nL+" pzas"],
+    ["2","Longitud por metro analizado","corrida continua","1.00 m c/u"],
+    ["3",`Traslape ${F.tras}Ø cada varilla de 12 m`,`${F.tras} × ${vL.d} mm = ${f2(F.tras*vL.d/1000)} m ÷ 12 m`,fmt(tras*100)+" %"],
+    ["4",`Peso acero longitudinal #${F.ld}`,`${nL} × 1.00 × ${vL.kg} × ${(1+tras).toFixed(4)}`,fmt(kgL)+" kg"],
+    ["sub","Acero transversal (a lo ancho, repartido en el metro)"],
+    ["5",`Barras #${F.td} @${f2(F.ts)} por metro`,`1.00 ÷ ${f2(F.ts)} (tramo continuo, sin +1)`,fmt(nT)+" pzas"],
+    ["6","Longitud de cada barra",`${f2(F.B)} − 2×${f2(F.rec)} + 2 ganchos × ${f2(F.g)}`,fmt(lenT)+" m"],
+    ["7",`Peso acero transversal #${F.td}`,`${fmt(nT)} × ${fmt(lenT)} × ${vT.kg}`,fmt(kgT)+" kg"],
+    ["tot","Acero total por metro lineal",`${fmt(kgL)} + ${fmt(kgT)}`,fmt(kgMl)+" kg/ml"],
+    ["tot","Acero por m² de zapata",`${fmt(kgMl)} ÷ ${f2(F.B)}`,fmt(kgMl/F.B)+" kg/m²"],
+    ["sub","Concreto, plantilla, excavación y cimbra"],
+    ["8","Concreto",`${f2(F.B)} × ${f2(F.e)} × 1.00`,fmt(conc)+" m³/ml"],
+    ["9","Plantilla 5 cm",`${f2(F.B)} × 1.00`,fmt(plant)+" m²/ml"],
+    ["10","Excavación",`${f2(F.B)} × ${f2(F.prof)} × 1.00`,fmt(exc)+" m³/ml"],
+    ["11","Cimbra en costados",F.cimbra?`2 × ${f2(F.e)} × 1.00`:"colada contra terreno",fmt(cimb)+" m²/ml"],
+    ["12","Alambre recocido (va en la matriz del acero)",`${fmt(kgMl)} × ${F.alam} % · a calibrar`,fmt(alam)+" kg/ml"]
+  ];
+  return {F,nL,kgL,nT,lenT,kgT,kgMl,acero,conc,plant,exc,cimb,alam,steps};
+}
+
+/* ---------- datos de ejemplo ---------- */
+const WALLS = [
+  {id:"M-1-B-C",tipo:"M1",a:[5.7,0],b:[13.4,0],ubic:"Eje 1 · tramo B–C",vanos:[{t:"V",w:2.4,h:1.5,p:2.6,s:0.9}],seed:"ALL",v:true},
+  {id:"M-C-1-4",tipo:"M1",a:[13.4,0],b:[13.4,10.4],ubic:"Eje C · tramo 1–4",vanos:[{t:"V",w:1.8,h:1.2,p:4.5,s:1.0}],seed:"ALL",v:true},
+  {id:"M-4-A-C",tipo:"M1",a:[0,10.4],b:[13.4,10.4],ubic:"Eje 4 · tramo A–C",vanos:[{t:"V",w:1.5,h:1.2,p:1.8,s:1.0},{t:"P",w:0.9,h:2.1,p:7.4,s:0},{t:"V",w:2.0,h:1.5,p:10.2,s:0.9}],seed:"ALL",v:false},
+  {id:"M-A-2-4",tipo:"M1",a:[0,3.2],b:[0,10.4],ubic:"Eje A · tramo 2–4",vanos:[{t:"V",w:2.0,h:1.5,p:1.0,s:0.9}],seed:["03.02.015","06.01.003","03.04.002"],v:false},
+  {id:"M-2-A-B",tipo:"M1",a:[0,3.2],b:[5.7,3.2],ubic:"Eje 2 · tramo A–B",vanos:[],seed:"ALL",v:false,conflict:{cap:5.55,cota:5.70,fixed:false}},
+  {id:"M-B-1-2",tipo:"M1",a:[5.7,0],b:[5.7,3.2],ubic:"Eje B · tramo 1–2 (acceso)",vanos:[{t:"P",w:1.0,h:2.1,p:1.1,s:0}],seed:"ALL",v:true},
+  {id:"M-B-2-3",tipo:"M2",a:[5.7,3.2],b:[5.7,7.0],ubic:"Eje B · tramo 2–3",vanos:[{t:"P",w:0.9,h:2.1,p:2.4,s:0}],seed:[],v:false},
+  {id:"M-3-A-B",tipo:"M2",a:[0,7.0],b:[5.7,7.0],ubic:"Eje 3 · tramo A–B",vanos:[{t:"P",w:0.8,h:2.1,p:3.9,s:0}],seed:["03.02.015"],v:false},
+  {id:"M-3-B'-C",tipo:"M2",a:[9.6,7.0],b:[13.4,7.0],ubic:"Eje 3 · tramo B'–C (cocina)",vanos:[],seed:[],v:false}
+];
+const XN = {"0":"A","5.7":"B","9.6":"B'","13.4":"C"}, YN = {"0":"1","3.2":"2","7":"3","10.4":"4"};
+const K_SEED = {"K-B1":[1,1],"K-C1":[1,1],"K-C4":[1,1],"K-A4":[1,1],"K-A2":[1,1],"K-B2":[1,1],"K-C3":[1,0]};
+const ZC_SEED = {"ZC-B-2-3":["02.03.001","02.02.020"],"ZC-3-A-B":[],"ZC-3-B'-C":[]};
+
+const EL = [];
+const byId = {};
+function add(e){ EL.push(e); byId[e.id]=e; }
+WALLS.forEach(w=>{ add(Object.assign({g:"M"},w)); });
+const kpts = {};
+WALLS.forEach(w=>[w.a,w.b].forEach(p=>{ kpts[p[0]+","+p[1]] = p; }));
+Object.values(kpts).forEach(p=>{
+  const id = "K-"+XN[String(p[0])]+YN[String(p[1])];
+  const s = K_SEED[id];
+  add({id,g:"K",tipo:"K1",p,ubic:"Cruce de ejes "+XN[String(p[0])]+"-"+YN[String(p[1])],seed:s?"ALL":[],v:!!(s&&s[1])});
+});
+WALLS.forEach(w=>{
+  const id = "ZC-"+w.id.slice(2);
+  const zs = ZC_SEED[id];
+  add({id,g:"ZC",tipo:w.tipo==="M1"?"ZC1":"ZC2",a:w.a,b:w.b,ref:w.id,ubic:"Bajo muro "+w.id,seed:zs!==undefined?zs:"ALL",v:zs===undefined});
+});
+add({id:"F-PB-01",g:"F",tipo:"F1",poly:[[0,3.2],[5.7,3.2],[5.7,7],[0,7]],ubic:"Recámara · ejes A–B / 2–3",seed:"ALL",v:false});
+add({id:"F-PB-02",g:"F",tipo:"F1",poly:[[0,7],[5.7,7],[5.7,10.4],[0,10.4]],ubic:"Baño y estudio · ejes A–B / 3–4",seed:[],v:false});
+add({id:"F-PB-03",g:"F",tipo:"F1",poly:[[5.7,0],[13.4,0],[13.4,10.4],[5.7,10.4]],ubic:"Estancia, comedor y cocina · ejes B–C / 1–4",seed:"ALL",v:true});
+add({id:"L-N1-01",g:"L",tipo:"L1",poly:[[5.7,0],[13.4,0],[13.4,10.4],[0,10.4],[0,3.2],[5.7,3.2]],desg:"7.70 × 10.40 + 5.70 × 7.20",ubic:"Losa de azotea · nivel +2.70",seed:["05.01.001","05.01.005"],v:false});
+
+/* ---------- cálculo ---------- */
+const dist = (a,b) => Math.hypot(b[0]-a[0],b[1]-a[1]);
+const area = p => Math.abs(p.reduce((s,q,i)=>{const n=p[(i+1)%p.length];return s+q[0]*n[1]-n[0]*q[1];},0))/2;
+const perim = p => p.reduce((s,q,i)=>s+dist(q,p[(i+1)%p.length]),0);
+function wallLen(e){ return (e.conflict && !e.conflict.fixed) ? e.conflict.cap : r2(dist(e.a,e.b)); }
+function areaF(e){
+  const A = area(e.poly);
+  if(e.desg) return e.desg+" = "+fmt(A);
+  const xs=e.poly.map(p=>p[0]), ys=e.poly.map(p=>p[1]);
+  return fmt(Math.max(...xs)-Math.min(...xs))+" × "+fmt(Math.max(...ys)-Math.min(...ys))+" = "+fmt(A);
+}
+function concepts(e){
+  if(e.g==="M"){
+    const L = wallLen(e), desc = r2(e.vanos.reduce((s,v)=>s+v.w*v.h,0)), neto = r2(L*H-desc);
+    const fN = fmt(L)+" × "+fmt(H)+(e.vanos.length?" − ("+e.vanos.map(v=>fmt(v.w)+"×"+fmt(v.h)).join(" + ")+")":"")+" = "+fmt(neto);
+    if(e.tipo==="M1") return [
+      {c:"03.02.015",q:neto,f:fN},
+      {c:"06.01.001",q:neto,f:"1 cara exterior = "+fmt(neto)},
+      {c:"06.01.003",q:neto,f:"1 cara interior = "+fmt(neto)},
+      {c:"06.02.004",q:r2(2*neto),f:"2 caras: 2 × "+fmt(neto)+" = "+fmt(2*neto)},
+      {c:"03.04.002",q:L,f:"L = "+fmt(L)}];
+    return [
+      {c:"03.02.015",q:neto,f:fN},
+      {c:"06.01.003",q:r2(2*neto),f:"2 caras: 2 × "+fmt(neto)+" = "+fmt(2*neto)},
+      {c:"06.02.004",q:r2(2*neto),f:"2 caras: 2 × "+fmt(neto)+" = "+fmt(2*neto)},
+      {c:"03.04.002",q:L,f:"L = "+fmt(L)}];
+  }
+  if(e.g==="K") return [{c:"03.03.004",q:H,f:"1 pza × "+fmt(H)+" (altura de niveles) = "+fmt(H)}];
+  if(e.g==="ZC"){
+    const L = r2(dist(e.a,e.b)), fc = ficha(e.tipo), n = fc.F.n;
+    const out = [
+      {c:"02.01.001",q:r2(L*fc.exc),f:`${fmt(L)} ml × ${fmt(fc.exc)} m³/ml (ficha ${n}) = ${fmt(L*fc.exc)}`},
+      {c:"02.01.004",q:r2(L*fc.plant),f:`${fmt(L)} ml × ${fmt(fc.plant)} m²/ml (ficha ${n}) = ${fmt(L*fc.plant)}`},
+      {c:"02.02.020",q:r2(L*fc.conc),f:`${fmt(L)} ml × ${fmt(fc.conc)} m³/ml (ficha ${n}) = ${fmt(L*fc.conc)}`}];
+    Object.keys(fc.acero).forEach(d=>{ const k=r2(fc.acero[d]); out.push({c:ACERO_CODE[d],q:r2(L*k),f:`${fmt(L)} ml × ${fmt(k)} kg/ml #${d} (ficha ${n}) = ${fmt(L*k)}`}); });
+    if(fc.cimb>0) out.push({c:"02.02.040",q:r2(L*fc.cimb),f:`${fmt(L)} ml × ${fmt(fc.cimb)} m²/ml (ficha ${n}) = ${fmt(L*fc.cimb)}`});
+    out.push({c:"02.03.001",q:L,f:"L = "+fmt(L)});
+    return out;
+  }
+  if(e.g==="F"){
+    const A = r2(area(e.poly));
+    return [
+      {c:"04.01.001",q:r2(A*0.20),f:fmt(A)+" × 0.20 = "+fmt(A*0.20)},
+      {c:"04.01.010",q:A,f:areaF(e)},
+      {c:"04.01.012",q:A,f:"= área de firme "+fmt(A)}];
+  }
+  if(e.g==="L"){
+    const A = r2(area(e.poly)), V = r2(A*0.12);
+    return [
+      {c:"05.01.001",q:A,f:areaF(e)},
+      {c:"05.01.005",q:V,f:fmt(A)+" × 0.12 = "+fmt(V)},
+      {c:"05.01.008",q:r2(V*90),f:fmt(V)+" m³ × 90 kg/m³ (índice preliminar) = "+fmt(V*90)}];
+  }
+  return [];
+}
+// despiece real de una zapata completa vs. análisis unitario
+function despieceZC(e){
+  const fc = ficha(e.tipo), F = fc.F, L = r2(dist(e.a,e.b));
+  const nReal = ceilS((L-2*F.rec)/F.ts)+1, nUnit = L/F.ts;
+  const dKg = (nReal-nUnit)*fc.lenT*VAR[F.td].kg;
+  return {L,nReal,nUnit,dKg,F};
+}
+EL.forEach(e=>{
+  const cs = concepts(e).map(x=>x.c);
+  e.asg = new Set(e.seed==="ALL"?cs:e.seed);
+  e.verified = !!e.v && cs.every(c=>e.asg.has(c));
+});
+function nAsg(e){ return concepts(e).filter(x=>e.asg.has(x.c)).length; }
+function status(e){
+  if(e.conflict && !e.conflict.fixed) return "err";
+  const n = concepts(e).length, a = nAsg(e);
+  if(a===0) return "sin";
+  if(a<n) return "par";
+  return e.verified?"ok":"ver";
+}
+
+/* ---------- estado de UI ---------- */
+let sel=null, filter="todo", hl=null, hov=null, view="2d", colorMode="material", losaT=true, showCodes=true, underlay=null, underlayOp=0.45, fTipo="ZC1";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+const col = st => "var("+ST[st].v+")";
+function hasCode(e,c){ return concepts(e).some(x=>x.c===c); }
+function hlList(){
+  if(!hl) return [];
+  const ord = {ZC:0,M:1,K:2,F:3,L:4};
+  return EL.filter(e=>hasCode(e,hl)).sort((a,b)=>ord[a.g]-ord[b.g] || a.id.localeCompare(b.id));
+}
+
+/* ---------- panel izquierdo ---------- */
+function renderLeft(){
+  let h = `<button class="grp" data-f="todo" aria-pressed="${filter==="todo"}"><div class="gh"><span>Todo el proyecto</span><span>${EL.filter(e=>status(e)==="ok").length}/${EL.length}</span></div>${barHTML(EL)}</button>`;
+  GROUPS.forEach(([k,n])=>{
+    const els = EL.filter(e=>e.g===k);
+    const ok = els.filter(e=>status(e)==="ok").length;
+    h += `<button class="grp" data-f="${k}" aria-pressed="${filter===k}"><div class="gh"><span>${n}</span><span>${ok}/${els.length} · ${Math.round(ok/els.length*100)}%</span></div>${barHTML(els)}</button>`;
+  });
+  $("groups").innerHTML = h;
+  $("cruces").innerHTML = crucesHTML();
+}
+function barHTML(els){
+  return `<div class="bar" aria-hidden="true">`+ST_ORDER.map(s=>{const c=els.filter(e=>status(e)===s).length;return c?`<i style="width:${c/els.length*100}%;background:${col(s)}"></i>`:"";}).join("")+`</div>`;
+}
+function crucesHTML(){
+  const losa = byId["L-N1-01"];
+  const aF = EL.filter(e=>e.g==="F").reduce((s,e)=>s+area(e.poly),0), aL = area(losa.poly);
+  const pL = perim(losa.poly), pM = EL.filter(e=>e.g==="M"&&e.tipo==="M1").reduce((s,e)=>s+wallLen(e),0);
+  const walls = EL.filter(e=>e.g==="M");
+  const kOk = walls.every(w=>[w.a,w.b].every(p=>EL.some(k=>k.g==="K"&&dist(k.p,p)<0.01)));
+  const zOk = walls.every(w=>EL.some(z=>z.g==="ZC"&&z.ref===w.id));
+  const k1 = ficha("ZC1"), kgm2 = k1.kgMl/k1.F.B, kgm3 = k1.kgMl/k1.conc;
+  const aceroOk = kgm3>=40 && kgm3<=120;
+  const rows = [
+    [Math.abs(aF-aL)<0.01,"Firmes = área de losa",fmt(aF)+" vs "+fmt(aL)+" m²"],
+    [Math.abs(pM-pL)<0.01,"Muros exteriores = perímetro",fmt(pM)+" vs "+fmt(pL)+" ml"+(Math.abs(pM-pL)>=0.01?" · Δ "+fmt(pL-pM):"")],
+    [kOk,"Castillo en cada extremo de muro",kOk?"todos los extremos cubiertos":"faltan castillos"],
+    [zOk,"Zapata bajo cada muro",zOk?walls.length+" de "+walls.length+" muros":"hay muros sin zapata"],
+    [aceroOk,"Cuantía de acero ZC-1 en rango",fmt(kgm3)+" kg/m³ · "+fmt(kgm2)+" kg/m² (rango 40–120 kg/m³)"]
+  ];
+  return rows.map(([ok,t,d])=>`<div class="cruce"><span class="${ok?"ok":"bad"}">${ok?"✓":"✗"}</span><span>${t}</span><small>${d}</small></div>`).join("");
+}
+function renderChips(){
+  if(hl){
+    const L = hlList(), a = L.filter(e=>e.asg.has(hl)).length;
+    $("chips").innerHTML = `<div class="hlbar"><span class="pill acc">${L.length} seleccionados</span><span><span class="mono">${hl}</span> ${esc(CAT[hl].d)}</span><span class="chip">cuantificados <b>${a}</b></span><span class="chip">pendientes <b>${L.length-a}</b></span><button class="btn link" id="hlClear" style="margin-left:auto">Quitar selección ✕</button></div>`;
+    return;
+  }
+  const vis = EL.filter(e=>filter==="todo"||e.g===filter);
+  $("chips").innerHTML = ST_ORDER.map(s=>`<span class="chip"><span class="dot" style="background:${col(s)}"></span>${ST[s].n} <b>${vis.filter(e=>status(e)===s).length}</b></span>`).join("");
+}
+
+/* ---------- plano 2D ---------- */
+function vecs(a,b){ const L=dist(a,b), d=[(b[0]-a[0])/L,(b[1]-a[1])/L]; return {L,d,n:[-d[1],d[0]]}; }
+function pt(a,d,s,n,o){ return [a[0]+d[0]*s+n[0]*o, a[1]+d[1]*s+n[1]*o]; }
+const P = p => p[0].toFixed(3)+","+p[1].toFixed(3);
+function bandPoly(a,d,n,s0,s1,w){ return [pt(a,d,s0,n,-w/2),pt(a,d,s1,n,-w/2),pt(a,d,s1,n,w/2),pt(a,d,s0,n,w/2)].map(P).join(" "); }
+function anchor(e){
+  if(e.g==="K") return [e.p[0]+0.32,e.p[1]-0.32];
+  if(e.g==="F"||e.g==="L"){ const cx=e.poly.reduce((a,p)=>a+p[0],0)/e.poly.length, cy=e.poly.reduce((a,p)=>a+p[1],0)/e.poly.length; return e.g==="L"?[9.5,4.6]:[cx,cy-0.6]; }
+  const v=vecs(e.a,e.b), off = e.g==="ZC"?0:0.55;
+  return pt(e.a,v.d,v.L/2,v.n,off);
+}
+
+function renderPlan(){
+  const ink="var(--ink)", muted="var(--muted)";
+  const list = hlList(), inHl = new Set(list.map(e=>e.id));
+  const dim = e => (hl && !inHl.has(e.id)) ? ` opacity="0.22"` : "";
+  let s = `<svg viewBox="-2.5 -2.5 18.4 15.4" role="img" aria-label="Planta baja con elementos cuantificables">`;
+  s += `<rect x="-2.5" y="-2.5" width="18.4" height="15.4" style="fill:var(--canvas)"/>`;
+  if(underlay) s += `<image href="${underlay}" x="0" y="0" width="13.4" height="10.4" preserveAspectRatio="none" opacity="${underlayOp}"/>`;
+  EJX.forEach(([k,x])=>{
+    s += `<line x1="${x}" y1="-1.55" x2="${x}" y2="11.3" style="stroke:${muted}" stroke-width="0.018" stroke-dasharray="0.25 0.08 0.04 0.08"/>`;
+    s += `<circle cx="${x}" cy="-1.9" r="0.32" style="fill:var(--canvas);stroke:${ink}" stroke-width="0.025"/><text x="${x}" y="-1.79" text-anchor="middle" font-size="0.32" font-family="IBM Plex Mono, monospace" style="fill:${ink}">${k}</text>`;
+  });
+  EJY.forEach(([k,y])=>{
+    s += `<line x1="-1.55" y1="${y}" x2="14.3" y2="${y}" style="stroke:${muted}" stroke-width="0.018" stroke-dasharray="0.25 0.08 0.04 0.08"/>`;
+    s += `<circle cx="-1.9" cy="${y}" r="0.32" style="fill:var(--canvas);stroke:${ink}" stroke-width="0.025"/><text x="-1.9" y="${y+0.11}" text-anchor="middle" font-size="0.32" font-family="IBM Plex Mono, monospace" style="fill:${ink}">${k}</text>`;
+  });
+  for(let i=0;i<EJX.length-1;i++){ const x0=EJX[i][1],x1=EJX[i+1][1];
+    s += `<line x1="${x0}" y1="-0.9" x2="${x1}" y2="-0.9" style="stroke:${muted}" stroke-width="0.015"/>`+[x0,x1].map(x=>`<line x1="${x-0.08}" y1="-0.82" x2="${x+0.08}" y2="-0.98" style="stroke:${ink}" stroke-width="0.025"/>`).join("");
+    s += `<text x="${(x0+x1)/2}" y="-1.0" text-anchor="middle" font-size="0.26" font-family="IBM Plex Mono, monospace" style="fill:${ink}">${fmt(x1-x0)}</text>`; }
+  for(let i=0;i<EJY.length-1;i++){ const y0=EJY[i][1],y1=EJY[i+1][1], ym=(y0+y1)/2;
+    s += `<line x1="-0.9" y1="${y0}" x2="-0.9" y2="${y1}" style="stroke:${muted}" stroke-width="0.015"/>`+[y0,y1].map(y=>`<line x1="-0.98" y1="${y+0.08}" x2="-0.82" y2="${y-0.08}" style="stroke:${ink}" stroke-width="0.025"/>`).join("");
+    s += `<text x="-1.0" y="${ym}" text-anchor="middle" font-size="0.26" font-family="IBM Plex Mono, monospace" transform="rotate(-90 -1.0 ${ym})" style="fill:${ink}">${fmt(y1-y0)}</text>`; }
+
+  const focus = g => filter==="todo" ? (g!=="ZC"&&g!=="L") : filter===g;
+  const outline = (e,shape) => {
+    let o="";
+    if(hl && inHl.has(e.id)) o += shape(hov===e.id?0.3:0.18,`style="fill:none;stroke:var(--accent)" stroke-width="${hov===e.id?0.09:0.06}"`);
+    if(sel===e.id) o += shape(0.26,`style="fill:none;stroke:var(--accent)" stroke-width="0.08" stroke-dasharray="0.2 0.08"`);
+    return o;
+  };
+  EL.filter(e=>e.g==="F").forEach(e=>{
+    if(!focus("F")) return;
+    const st=status(e), pts=e.poly.map(P).join(" ");
+    s += `<g data-id="${esc(e.id)}" style="cursor:pointer"${dim(e)}><title>${esc(e.id)} · ${ST[st].n}</title><polygon points="${pts}" style="fill:${col(st)};fill-opacity:${filter==="F"?0.38:0.16};stroke:${col(st)}" stroke-width="0.03"/>`;
+    const cx=e.poly.reduce((a,p)=>a+p[0],0)/e.poly.length, cy=e.poly.reduce((a,p)=>a+p[1],0)/e.poly.length;
+    if(showCodes||filter==="F") s += `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="0.24" font-family="IBM Plex Mono, monospace" style="fill:${muted}">${esc(e.id)}</text><text x="${cx}" y="${cy+0.32}" text-anchor="middle" font-size="0.22" font-family="IBM Plex Mono, monospace" style="fill:${muted}">${fmt(area(e.poly))} m²</text>`;
+    s += `</g>` + outline(e,(g,st2)=>`<polygon points="${pts}" ${st2}/>`);
+  });
+  EL.filter(e=>e.g==="L").forEach(e=>{
+    if(!focus("L")) return;
+    const st=status(e), pts=e.poly.map(P).join(" ");
+    s += `<g data-id="${esc(e.id)}" style="cursor:pointer"${dim(e)}><title>${esc(e.id)} · ${ST[st].n}</title><polygon points="${pts}" style="fill:${col(st)};fill-opacity:0.3;stroke:${col(st)}" stroke-width="0.04" stroke-dasharray="0.3 0.1"/><text x="9.5" y="5.4" text-anchor="middle" font-size="0.3" font-family="IBM Plex Mono, monospace" style="fill:${ink}">${esc(e.id)} · ${fmt(area(e.poly))} m²</text></g>`;
+    s += outline(e,(g,st2)=>`<polygon points="${pts}" ${st2}/>`);
+  });
+  EL.filter(e=>e.g==="ZC").forEach(e=>{
+    if(!focus("ZC")) return;
+    const st=status(e), v=vecs(e.a,e.b), w=FICHAS[e.tipo].B;
+    s += `<g data-id="${esc(e.id)}" style="cursor:pointer"${dim(e)}><title>${esc(e.id)} · ${ST[st].n}</title><polygon points="${bandPoly(e.a,v.d,v.n,-w/2,v.L+w/2,w)}" style="fill:${col(st)};fill-opacity:0.35;stroke:${col(st)}" stroke-width="0.025" stroke-dasharray="0.12 0.06"/></g>`;
+    s += outline(e,(g,st2)=>`<polygon points="${bandPoly(e.a,v.d,v.n,-w/2,v.L+w/2,w+g)}" ${st2}/>`);
+  });
+  EL.filter(e=>e.g==="M").forEach(e=>{
+    const st=status(e), v=vecs(e.a,e.b), on=focus("M");
+    const fill = on?col(st):"var(--ctx)";
+    let g = `<g data-id="${esc(e.id)}" style="cursor:pointer"${(on||!hl)?dim(e):""}><title>${esc(e.id)} · ${ST[st].n}</title>`;
+    const vs=[...e.vanos].sort((x,y)=>x.p-y.p); let s0=0;
+    const solid=(a0,a1)=>`<polygon points="${bandPoly(e.a,v.d,v.n,a0,a1,T)}" style="fill:${fill};stroke:${ink}" stroke-width="0.02"/>`;
+    vs.forEach(o=>{
+      if(o.p>s0) g+=solid(s0,o.p);
+      if(o.t==="V"){
+        g += `<polygon points="${bandPoly(e.a,v.d,v.n,o.p,o.p+o.w,T)}" style="fill:var(--canvas);stroke:${ink}" stroke-width="0.015"/>`;
+        const m0=pt(e.a,v.d,o.p,v.n,0), m1=pt(e.a,v.d,o.p+o.w,v.n,0);
+        g += `<line x1="${m0[0]}" y1="${m0[1]}" x2="${m1[0]}" y2="${m1[1]}" style="stroke:var(--s-ver)" stroke-width="0.03"/>`;
+      } else {
+        const h0=pt(e.a,v.d,o.p,v.n,T/2), p1=pt(e.a,v.d,o.p+o.w,v.n,T/2), p2=[h0[0]+v.n[0]*o.w,h0[1]+v.n[1]*o.w];
+        g += `<line x1="${h0[0]}" y1="${h0[1]}" x2="${p2[0]}" y2="${p2[1]}" style="stroke:${ink}" stroke-width="0.025"/>`;
+        g += `<path d="M${P(p1)} A${o.w} ${o.w} 0 0 1 ${P(p2)}" style="fill:none;stroke:${muted}" stroke-width="0.015" stroke-dasharray="0.06 0.04"/>`;
+      }
+      s0=o.p+o.w;
+    });
+    if(s0<v.L) g+=solid(s0,v.L);
+    g += `<line x1="${e.a[0]}" y1="${e.a[1]}" x2="${e.b[0]}" y2="${e.b[1]}" stroke="transparent" stroke-width="0.5" style="pointer-events:stroke"/>`;
+    if(showCodes && on && !hl){
+      const m=pt(e.a,v.d,v.L/2,v.n,-0.34), vert=Math.abs(v.d[1])>0.5;
+      g += `<text x="${m[0]}" y="${m[1]+0.07}" text-anchor="middle" font-size="0.21" font-family="IBM Plex Mono, monospace" ${vert?`transform="rotate(-90 ${m[0]} ${m[1]})"`:""} style="fill:${muted}">${esc(e.id)}</text>`;
+    }
+    if(e.conflict && !e.conflict.fixed){
+      const m=pt(e.a,v.d,v.L/2,v.n,0.42);
+      g += `<text x="${m[0]}" y="${m[1]+0.08}" text-anchor="middle" font-size="0.22" font-weight="600" font-family="IBM Plex Mono, monospace" style="fill:var(--s-err)">Δ ${fmt(e.conflict.cota-e.conflict.cap)} m</text>`;
+    }
+    g += `</g>`;
+    s += g + outline(e,(gr,st2)=>`<polygon points="${bandPoly(e.a,v.d,v.n,-0.05,v.L+0.05,T+gr)}" ${st2}/>`);
+  });
+  EL.filter(e=>e.g==="K").forEach(e=>{
+    const st=status(e), on=focus("K"), k=0.2, x=e.p[0]-k/2, y=e.p[1]-k/2;
+    s += `<g data-id="${esc(e.id)}" style="cursor:pointer"${(on||!hl)?dim(e):""}><title>${esc(e.id)} · ${ST[st].n}</title><rect x="${x}" y="${y}" width="${k}" height="${k}" style="fill:${on?col(st):"var(--ctx)"};stroke:${ink}" stroke-width="0.025"/><circle cx="${e.p[0]}" cy="${e.p[1]}" r="0.3" fill="transparent"/>`;
+    if(filter==="K" && !hl) s += `<text x="${e.p[0]+0.2}" y="${e.p[1]-0.18}" font-size="0.2" font-family="IBM Plex Mono, monospace" style="fill:${muted}">${esc(e.id)}</text>`;
+    s += `</g>` + outline(e,(g,st2)=>`<rect x="${x-g/2}" y="${y-g/2}" width="${k+g}" height="${k+g}" ${st2}/>`);
+  });
+  // números de la selección por concepto
+  list.forEach((e,i)=>{
+    const [x,y]=anchor(e), asg=e.asg.has(hl), big=hov===e.id;
+    s += `<g data-id="${esc(e.id)}" style="cursor:pointer"><circle cx="${x}" cy="${y}" r="${big?0.3:0.24}" style="fill:${asg?"var(--accent)":"var(--canvas)"};stroke:var(--accent)" stroke-width="0.05"/><text x="${x}" y="${y+0.08}" text-anchor="middle" font-size="0.22" font-weight="600" font-family="IBM Plex Mono, monospace" style="fill:${asg?"var(--on-accent)":"var(--accent)"}">${i+1}</text></g>`;
+  });
+  s += `</svg>`;
+  $("v2d").innerHTML = s;
+}
+
+/* ---------- panel derecho ---------- */
+function renderSide(){
+  const e = sel && byId[sel];
+  if(e) return renderElement(e);
+  if(hl) return renderConcept();
+  $("side").innerHTML = `<div class="sec empty"><h2>Generador del elemento</h2>
+    <p>Selecciona un elemento en el plano o en 3D para ver su generador, las fórmulas con sus valores y marcarlo como verificado.</p>
+    <p>O elige un concepto en el generador consolidado: se seleccionan y numeran todos los elementos que lo generan, con su cantidad y su suma.</p>
+    <div class="legend">${ST_ORDER.map(s=>`<div><span class="dot" style="background:${col(s)}"></span>${ST[s].n}</div>`).join("")}</div></div>`;
+}
+function renderConcept(){
+  const L = hlList(), cat = CAT[hl];
+  let tot=0, a=0, p=0;
+  let rows = L.map((e,i)=>{
+    const x = concepts(e).find(c=>c.c===hl), asg = e.asg.has(hl);
+    tot+=x.q; if(asg) a+=x.q; else p+=x.q;
+    return `<tr class="elrow${hov===e.id?" hov":""}" data-el="${esc(e.id)}" tabindex="0"><td style="width:30px"><span class="num" style="${asg?"":"background:var(--canvas);color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)"}">${i+1}</span></td>
+      <td><span class="mono">${esc(e.id)}</span> <span class="mini" style="color:${col(status(e))}">${ST[status(e)].n}</span><span class="f">${esc(e.ubic)}</span><span class="f">${esc(x.f)}</span></td>
+      <td class="q">${fmt(x.q)}<br><span class="mini" style="color:${asg?"var(--s-ok)":"var(--s-par)"}">${asg?"cuantificado":"pendiente"}</span></td></tr>`;
+  }).join("");
+  // conciliación contra el consolidado
+  let ta=0,tp=0; EL.forEach(e=>concepts(e).forEach(x=>{ if(x.c===hl){ if(e.asg.has(hl)) ta+=x.q; else tp+=x.q; } }));
+  const ok = Math.abs((a+p)-(ta+tp))<0.005;
+  $("side").innerHTML = `<div class="sec"><div class="ph"><span class="code">${hl}</span><span class="pill acc">${L.length} elementos</span></div>
+    <div class="meta">${esc(cat.d)} · ${cat.u}</div>
+    <table class="gen"><tbody>${rows}</tbody>
+    <tfoot><tr><td></td><td>Suma de los ${L.length} elementos</td><td class="q">${fmt(tot)} ${cat.u}</td></tr></tfoot></table>
+    <div class="note"><b>${ok?"✓ Cuadra con el consolidado":"✗ No cuadra con el consolidado"}</b><br><span class="mono">cuantificado ${fmt(a)} + pendiente ${fmt(p)} = ${fmt(a+p)} ${cat.u}</span></div>
+    <div class="acts"><button class="btn" id="hlAssign" ${p>0?"":"disabled"}>Asignar a los ${L.filter(e=>!e.asg.has(hl)).length} pendientes</button><button class="btn" id="hlClose">Quitar selección</button></div></div>`;
+}
+function renderElement(e){
+  const st=status(e), cs=concepts(e);
+  let h = `<div class="sec">`;
+  if(hl && hasCode(e,hl)) h += `<button class="btn link" id="backHl" style="margin-bottom:10px">← Volver a ${hl} (${hlList().length} elementos)</button>`;
+  h += `<div class="ph"><span class="code">${esc(e.id)}</span><span class="pill" style="background:${col(st)}">${ST[st].n}</span></div>
+    <div class="meta">${esc(TIPOS[e.tipo])}<br>${esc(e.ubic)}</div>`;
+  if(e.conflict && !e.conflict.fixed){
+    h += `<div class="alert"><strong>Las medidas no cierran.</strong> El tramo capturado suma <span class="mono">${fmt(e.conflict.cap)}</span> y la cota entre ejes es <span class="mono">${fmt(e.conflict.cota)}</span> (Δ <span class="mono">${fmt(e.conflict.cota-e.conflict.cap)}</span>). No se puede verificar hasta corregirlo.<div class="acts"><button class="btn" id="fixBtn">Ajustar a cota ${fmt(e.conflict.cota)}</button></div></div>`;
+  }
+  h += `<table class="gen"><tbody>`;
+  cs.forEach(x=>{
+    const on=e.asg.has(x.c), id="ck-"+x.c.replace(/\./g,"-");
+    h += `<tr class="${on?"":"off"}"><td style="width:22px"><input type="checkbox" id="${id}" data-c="${x.c}" ${on?"checked":""} aria-label="Asignar ${esc(CAT[x.c].d)}"></td>
+      <td><label for="${id}"><span class="c">${x.c}</span> ${esc(CAT[x.c].d)}</label><span class="f">${esc(x.f)}</span></td>
+      <td class="q">${fmt(x.q)} ${CAT[x.c].u}</td></tr>`;
+  });
+  h += `</tbody></table>`;
+  if(e.g==="ZC"){
+    const d = despieceZC(e);
+    h += `<div class="note"><b>Comprobación de despiece real</b><br>Transversales #${d.F.td} en la zapata completa: <span class="mono">⌈(${fmt(d.L)} − 2×${f2(d.F.rec)}) ÷ ${f2(d.F.ts)}⌉ + 1 = ${d.nReal} pzas</span><br>Por análisis unitario: <span class="mono">${fmt(d.L)} ÷ ${f2(d.F.ts)} = ${fmt(d.nUnit)} pzas</span><br>Diferencia: <span class="mono">${fmt(d.nReal-d.nUnit)} pzas · ${fmt(d.dKg)} kg</span> (la absorbe el desperdicio de la matriz)<div class="acts"><button class="btn link" id="goFicha" data-t="${e.tipo}">Ver ficha ${FICHAS[e.tipo].n} →</button></div></div>`;
+  }
+  const canV = nAsg(e)===cs.length && !(e.conflict && !e.conflict.fixed);
+  h += `<div class="acts"><button class="btn" id="allBtn" ${nAsg(e)===cs.length?"disabled":""}>Asignar todos</button>
+    <button class="btn pri" id="verBtn" ${canV&&!e.verified?"":"disabled"}>${e.verified?"Verificado ✓":"Marcar verificado"}</button>
+    <button class="btn" id="desBtn">Cerrar</button></div></div>`;
+  $("side").innerHTML = h;
+}
+
+/* ---------- generador consolidado ---------- */
+function renderTable(){
+  const map = {};
+  EL.forEach(e=>concepts(e).forEach(x=>{
+    const m = map[x.c] || (map[x.c]={a:0,p:0,n:0});
+    if(e.asg.has(x.c)) m.a+=x.q; else m.p+=x.q;
+    m.n++;
+  }));
+  let h = `<thead><tr><th>Código</th><th>Concepto</th><th>Unidad</th><th style="text-align:right">Cuantificado</th><th style="text-align:right">Pendiente</th><th style="text-align:right">Elementos</th></tr></thead><tbody>`;
+  let last="";
+  Object.keys(map).sort().forEach(c=>{
+    const pre=c.slice(0,2), m=map[c];
+    if(pre!==last){ h += `<tr class="part"><td colspan="6">${PARTIDAS[pre]}</td></tr>`; last=pre; }
+    h += `<tr class="row${hl===c?" hl":""}" data-c="${c}" tabindex="0" aria-pressed="${hl===c}"><td class="mono">${c}</td><td>${esc(CAT[c].d)}</td><td>${CAT[c].u}</td><td class="n">${fmt(m.a)}</td><td class="n ${m.p>0?"pend":""}">${m.p>0?fmt(m.p):"—"}</td><td class="n">${m.n}</td></tr>`;
+  });
+  $("cons").innerHTML = h+`</tbody>`;
+}
+
+/* ---------- fichas ---------- */
+function renderFichaForm(){
+  $("fSeg").innerHTML = Object.keys(FICHAS).map(t=>`<button type="button" data-t="${t}" aria-pressed="${t===fTipo}">${FICHAS[t].n}</button>`).join("");
+  const F = FICHAS[fTipo];
+  const num = (k,l,step) => `<label>${l}<input type="number" id="fi-${k}" data-k="${k}" step="${step||0.01}" min="0" value="${F[k]}"></label>`;
+  const sv = (k,l) => `<label>${l}<select id="fi-${k}" data-k="${k}">${Object.keys(VAR).map(d=>`<option value="${d}" ${F[k]===d?"selected":""}>#${d} (${VAR[d].kg})</option>`).join("")}</select></label>`;
+  $("fForm").innerHTML = `<p class="src">${esc(F.src)} · análisis por 1.00 m de zapata</p>
+    <fieldset><legend>Sección</legend>${num("B","Ancho (m)")}${num("e","Espesor (m)")}${num("prof","Desplante (m)")}${num("rec","Recubrimiento (m)")}</fieldset>
+    <fieldset><legend>Transversal</legend>${sv("td","Varilla")}${num("ts","Separación (m)")}</fieldset>
+    <fieldset><legend>Longitudinal</legend>${sv("ld","Varilla")}${num("ls","Separación (m)")}</fieldset>
+    <fieldset><legend>Criterios</legend>${num("g","Gancho por lado (m)")}${num("tras","Traslape (Ø)",1)}${num("alam","Alambre (% acero)",0.5)}<label class="chk full"><input type="checkbox" id="fi-cimbra" data-k="cimbra" ${F.cimbra?"checked":""}> Lleva cimbra en costados</label></fieldset>`;
+  renderFichaSteps();
+}
+function renderFichaSteps(){
+  const fc = ficha(fTipo);
+  const used = EL.filter(e=>e.g==="ZC"&&e.tipo===fTipo), Ltot = used.reduce((s,e)=>s+r2(dist(e.a,e.b)),0);
+  let h = `<thead><tr><th></th><th>Paso</th><th>Cálculo</th><th style="text-align:right">Resultado</th></tr></thead><tbody>`;
+  fc.steps.forEach(s=>{
+    if(s[0]==="sub") h += `<tr class="sub"><td colspan="4">${esc(s[1])}</td></tr>`;
+    else h += `<tr class="${s[0]==="tot"?"tot":""}"><td class="k">${s[0]==="tot"?"Σ":s[0]}</td><td>${esc(s[1])}</td><td class="fx">${esc(s[2])}</td><td class="n">${s[3]}</td></tr>`;
+  });
+  h += `<tr class="sub"><td colspan="4">Aplicado al proyecto</td></tr><tr><td class="k">→</td><td>${used.length} zapatas ${FICHAS[fTipo].n} en planta</td><td class="fx">${fmt(Ltot)} ml × ${fmt(fc.kgMl)} kg/ml</td><td class="n">${fmt(Ltot*fc.kgMl)} kg</td></tr></tbody>`;
+  $("fSteps").innerHTML = h;
+}
+
+/* ---------- 3D ---------- */
+let R3 = null;
+function init3D(){
+  if(R3) return R3;
+  const host=$("v3d");
+  if(!window.THREE){ host.innerHTML = `<p style="padding:20px;color:var(--muted)">No se pudo cargar el motor 3D.</p>`; return null; }
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  host.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(38,1,0.1,300);
+  scene.add(new THREE.HemisphereLight(0xffffff,0x8a8f94,0.85));
+  const dl = new THREE.DirectionalLight(0xffffff,0.55); dl.position.set(12,22,6); scene.add(dl);
+  const grid = new THREE.GridHelper(30,30,0x8f989e,0xb9c0c4); grid.position.set(6.7,-0.12,5.2); grid.material.transparent=true; grid.material.opacity=0.35; scene.add(grid);
+  const ctr = new THREE.Vector3(6.7,0.6,5.2);
+  const cs = {th:-2.25, ph:0.95, rad:25};
+  let meshes = [];
+  const MAT = {block:0xC9A26B,castillo:0x8A9096,vidrio:0x8EC5E8,puerta:0x8B6A4E,firme:0xB8B4AA,losa:0x9FA6AB,zapata:0x7F868B};
+  function mk(geo,color,id,kind){
+    const m = new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color,transparent:true,opacity:1}));
+    m.userData={id,kind,base:color};
+    const ed = new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x2b3238,transparent:true,opacity:0.45}));
+    m.add(ed); m.userData.edges=ed;
+    scene.add(m); meshes.push(m); return m;
+  }
+  function boxAlong(e,s0,s1,y0,y1,th,color,id,kind){
+    const v=vecs(e.a,e.b), c=pt(e.a,v.d,(s0+s1)/2,v.n,0);
+    const m = mk(new THREE.BoxGeometry(s1-s0,y1-y0,th),color,id,kind);
+    m.position.set(c[0],(y0+y1)/2,c[1]); m.rotation.y = -Math.atan2(v.d[1],v.d[0]);
+  }
+  function slab(poly,depth,top,color,id,kind){
+    const sh = new THREE.Shape(); poly.forEach((p,i)=>i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1]));
+    const geo = new THREE.ExtrudeGeometry(sh,{depth,bevelEnabled:false});
+    const m = mk(geo,color,id,kind); m.rotation.x = Math.PI/2; m.position.y = top;
+  }
+  function buildZC(){
+    meshes.filter(m=>m.userData.kind==="ZC").forEach(m=>{ scene.remove(m); m.geometry.dispose(); });
+    meshes = meshes.filter(m=>m.userData.kind!=="ZC");
+    EL.filter(e=>e.g==="ZC").forEach(e=>{ const F=FICHAS[e.tipo]; boxAlong(e,-F.B/2,dist(e.a,e.b)+F.B/2,-F.prof,-F.prof+F.e,F.B,MAT.zapata,e.id,"ZC"); });
+  }
+  EL.forEach(e=>{
+    if(e.g==="M"){
+      const L=dist(e.a,e.b), vs=[...e.vanos].sort((x,y)=>x.p-y.p); let s=0;
+      vs.forEach(o=>{
+        if(o.p>s) boxAlong(e,s,o.p,0,H,T,MAT.block,e.id,"M");
+        if(o.s>0) boxAlong(e,o.p,o.p+o.w,0,o.s,T,MAT.block,e.id,"M");
+        if(o.s+o.h<H) boxAlong(e,o.p,o.p+o.w,o.s+o.h,H,T,MAT.block,e.id,"M");
+        boxAlong(e,o.p,o.p+o.w,o.s,o.s+o.h,o.t==="V"?0.03:0.05,o.t==="V"?MAT.vidrio:MAT.puerta,e.id,"vano");
+        s=o.p+o.w;
+      });
+      if(s<L) boxAlong(e,s,L,0,H,T,MAT.block,e.id,"M");
+    } else if(e.g==="K"){
+      const m = mk(new THREE.BoxGeometry(0.17,H,0.17),MAT.castillo,e.id,"K"); m.position.set(e.p[0],H/2,e.p[1]);
+    } else if(e.g==="F"){
+      slab(e.poly,0.10,0,MAT.firme,e.id,"F");
+    } else if(e.g==="L"){
+      slab(e.poly,0.12,H+0.12,MAT.losa,e.id,"L");
+    }
+  });
+  buildZC();
+  function place(){
+    cam.position.set(ctr.x+cs.rad*Math.sin(cs.ph)*Math.cos(cs.th), ctr.y+cs.rad*Math.cos(cs.ph), ctr.z+cs.rad*Math.sin(cs.ph)*Math.sin(cs.th));
+    cam.lookAt(ctr);
+  }
+  function draw(){
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--canvas").trim()||"#ffffff";
+    renderer.setClearColor(new THREE.Color(bg));
+    place(); renderer.render(scene,cam);
+  }
+  function size(){
+    const w=host.clientWidth, h=host.clientHeight; if(!w||!h) return;
+    renderer.setSize(w,h); cam.aspect=w/h; cam.updateProjectionMatrix(); draw();
+  }
+  new ResizeObserver(size).observe(host);
+  let down=null;
+  host.addEventListener("pointerdown",ev=>{ down={x:ev.clientX,y:ev.clientY,m:0}; host.setPointerCapture(ev.pointerId); host.style.cursor="grabbing"; });
+  host.addEventListener("pointermove",ev=>{ if(!down) return; const dx=ev.clientX-down.x, dy=ev.clientY-down.y; down.m+=Math.abs(dx)+Math.abs(dy); down.x=ev.clientX; down.y=ev.clientY; cs.th+=dx*0.01; cs.ph=Math.min(1.5,Math.max(0.15,cs.ph-dy*0.01)); draw(); });
+  host.addEventListener("pointerup",ev=>{
+    host.style.cursor="grab";
+    if(down && down.m<5){
+      const r=host.getBoundingClientRect(), ray=new THREE.Raycaster();
+      ray.setFromCamera(new THREE.Vector2(((ev.clientX-r.left)/r.width)*2-1, -((ev.clientY-r.top)/r.height)*2+1),cam);
+      const hits = ray.intersectObjects(meshes,false).filter(h=>!(h.object.userData.kind==="L"&&losaT&&filter!=="L") && h.object.material.opacity>0.2);
+      sel = hits.length ? hits[0].object.userData.id : null; renderAll();
+    }
+    down=null;
+  });
+  host.addEventListener("wheel",ev=>{ ev.preventDefault(); cs.rad=Math.min(70,Math.max(7,cs.rad*(1+ev.deltaY*0.001))); draw(); },{passive:false});
+  $("zIn").addEventListener("click",()=>{ cs.rad=Math.max(7,cs.rad*0.85); draw(); });
+  $("zOut").addEventListener("click",()=>{ cs.rad=Math.min(70,cs.rad*1.18); draw(); });
+  function recolor(){
+    const inHl = new Set(hlList().map(e=>e.id));
+    meshes.forEach(m=>{
+      const e=byId[m.userData.id], k=m.userData.kind, mat=m.material;
+      let c=m.userData.base;
+      if(colorMode==="estatus" && k!=="vano") c=ST[status(e)].hex;
+      mat.color.setHex(c);
+      let op = hl ? (inHl.has(e.id)?1:0.1) : ((filter==="todo"||e.g===filter)?1:0.12);
+      if(k==="L" && losaT && filter!=="L" && !(hl && inHl.has(e.id))) op = Math.min(op,0.28);
+      if(k==="vano" && m.userData.base===MAT.vidrio) op = Math.min(op,0.6);
+      mat.opacity = op; mat.depthWrite = op>0.5;
+      m.userData.edges.material.opacity = op<0.5?0.12:0.45;
+      mat.emissive.setHex(sel===e.id?0x1E5A86:(inHl.has(e.id)?0x0f3a5c:0x000000));
+    });
+    draw();
+  }
+  R3 = {recolor,size,draw,buildZC};
+  size();
+  return R3;
+}
+
+/* ---------- render general ---------- */
+function renderAll(){
+  renderLeft(); renderChips(); renderSide(); renderTable();
+  if(view==="2d") renderPlan(); else { const r=init3D(); if(r) r.recolor(); }
+}
+
+/* ---------- eventos ---------- */
+$("groups").addEventListener("click",ev=>{ const b=ev.target.closest(".grp"); if(!b) return; filter=b.dataset.f; hl=null; renderAll(); });
+$("v2d").addEventListener("click",ev=>{ const g=ev.target.closest("[data-id]"); sel = g ? g.dataset.id : null; if(!g && hl){ /* clic en vacío conserva la selección por concepto */ } renderAll(); });
+$("chips").addEventListener("click",ev=>{ if(ev.target.id==="hlClear"){ hl=null; sel=null; renderAll(); } });
+$("side").addEventListener("change",ev=>{
+  const c=ev.target.dataset.c; if(!c) return; const e=byId[sel];
+  if(ev.target.checked) e.asg.add(c); else e.asg.delete(c);
+  e.verified=false; renderAll();
+});
+$("side").addEventListener("click",ev=>{
+  const t=ev.target.closest("button,tr.elrow"); if(!t) return;
+  if(t.matches("tr.elrow")){ sel=t.dataset.el; hov=null; renderAll(); return; }
+  const e=byId[sel];
+  if(t.id==="hlClose"){ hl=null; renderAll(); return; }
+  if(t.id==="hlAssign"){ hlList().forEach(x=>{ if(!x.asg.has(hl)){ x.asg.add(hl); x.verified=false; } }); renderAll(); return; }
+  if(t.id==="backHl"){ sel=null; renderAll(); return; }
+  if(t.id==="goFicha"){ fTipo=t.dataset.t; renderFichaForm(); $("fichas").scrollIntoView({behavior:"smooth",block:"start"}); return; }
+  if(!e) return;
+  if(t.id==="allBtn"){ concepts(e).forEach(x=>e.asg.add(x.c)); renderAll(); }
+  if(t.id==="verBtn"){ e.verified=true; renderAll(); }
+  if(t.id==="fixBtn"){ e.conflict.fixed=true; e.verified=false; renderAll(); }
+  if(t.id==="desBtn"){ sel=null; renderAll(); }
+});
+$("side").addEventListener("keydown",ev=>{ if((ev.key==="Enter"||ev.key===" ") && ev.target.matches("tr.elrow")){ ev.preventDefault(); sel=ev.target.dataset.el; renderAll(); } });
+$("side").addEventListener("mouseover",ev=>{
+  const tr=ev.target.closest("tr.elrow"); const id=tr?tr.dataset.el:null;
+  if(id!==hov){ hov=id; document.querySelectorAll("tr.elrow").forEach(r=>r.classList.toggle("hov",r.dataset.el===hov)); if(view==="2d") renderPlan(); }
+});
+$("side").addEventListener("mouseleave",()=>{ if(hov){ hov=null; if(view==="2d") renderPlan(); } });
+function pickRow(tr){
+  const c=tr.dataset.c; hl = hl===c?null:c; sel=null; hov=null;
+  if(hl){ const gs=[...new Set(EL.filter(e=>hasCode(e,hl)).map(e=>e.g))]; filter = gs.length===1?gs[0]:"todo"; }
+  renderAll();
+  if(hl && window.innerWidth<1150) $("stage").scrollIntoView({behavior:"smooth",block:"start"});
+}
+$("cons").addEventListener("click",ev=>{ const tr=ev.target.closest("tr.row"); if(tr) pickRow(tr); });
+$("cons").addEventListener("keydown",ev=>{ if(ev.key==="Enter"||ev.key===" "){ const tr=ev.target.closest("tr.row"); if(tr){ ev.preventDefault(); pickRow(tr); } } });
+$("fSeg").addEventListener("click",ev=>{ const b=ev.target.closest("button"); if(!b) return; fTipo=b.dataset.t; renderFichaForm(); });
+$("fForm").addEventListener("input",ev=>{
+  const k=ev.target.dataset.k; if(!k) return;
+  const F=FICHAS[fTipo];
+  if(ev.target.type==="checkbox") F[k]=ev.target.checked;
+  else if(ev.target.tagName==="SELECT") F[k]=ev.target.value;
+  else { const v=parseFloat(ev.target.value); if(!(v>0) && k!=="alam" && k!=="g") return; F[k]=isNaN(v)?0:v; }
+  // un cambio en la ficha invalida la verificación de las zapatas de ese tipo
+  const ac = new Set(Object.values(ACERO_CODE));
+  EL.filter(e=>e.g==="ZC"&&e.tipo===fTipo).forEach(e=>{
+    const had=[...e.asg].some(c=>ac.has(c));
+    [...e.asg].forEach(c=>{ if(ac.has(c)) e.asg.delete(c); });
+    if(had) concepts(e).forEach(x=>{ if(ac.has(x.c)) e.asg.add(x.c); });
+    e.verified=false;
+  });
+  renderFichaSteps();
+  if(R3) R3.buildZC();
+  renderAll();
+});
+function setView(v){
+  view=v;
+  $("b2d").setAttribute("aria-pressed",v==="2d"); $("b3d").setAttribute("aria-pressed",v==="3d");
+  $("v2d").hidden = v!=="2d"; $("v3d").hidden = v!=="3d"; $("zoom3d").hidden = v!=="3d"; $("hint3d").hidden = v!=="3d";
+  $("opt2d").hidden = v!=="2d"; $("opt3d").hidden = v!=="3d";
+  renderAll(); if(v==="3d" && R3) R3.size();
+}
+$("b2d").addEventListener("click",()=>setView("2d"));
+$("b3d").addEventListener("click",()=>setView("3d"));
+$("cMat").addEventListener("click",()=>{ colorMode="material"; $("cMat").setAttribute("aria-pressed","true"); $("cSt").setAttribute("aria-pressed","false"); renderAll(); });
+$("cSt").addEventListener("click",()=>{ colorMode="estatus"; $("cSt").setAttribute("aria-pressed","true"); $("cMat").setAttribute("aria-pressed","false"); renderAll(); });
+$("chkLosa").addEventListener("change",ev=>{ losaT=ev.target.checked; renderAll(); });
+$("chkCodes").addEventListener("change",ev=>{ showCodes=ev.target.checked; renderAll(); });
+$("fileUp").addEventListener("change",ev=>{
+  const f=ev.target.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ underlay=rd.result; if(view!=="2d") setView("2d"); else renderAll(); }; rd.readAsDataURL(f);
+});
+$("opUp").addEventListener("input",ev=>{ underlayOp=+ev.target.value; if(view==="2d") renderPlan(); });
+document.addEventListener("keydown",ev=>{ if(ev.key==="Escape"){ if(sel){ sel=null; renderAll(); } else if(hl){ hl=null; renderAll(); } } });
+try{ matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{ if(R3) R3.draw(); }); }catch(_){}
+
+window.__test = {EL,concepts,status,ficha,despieceZC,FICHAS};
+renderFichaForm();
+renderAll();
+})();
+</script>

@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --color-acento: #1e5a86;
+  /* semáforo de elementos */
+  --color-st-sin: #9aa3aa;
+  --color-st-par: #d3921a;
+  --color-st-ver: #3b78c2;
+  --color-st-ok: #2b8753;
+  --color-st-err: #c63f2c;
+}
+
+body {
+  @apply bg-slate-100 text-slate-900 font-sans;
+}
+
+.num {
+  @apply font-mono tabular-nums;
+}

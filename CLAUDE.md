@@ -1,0 +1,312 @@
+# Sistema de Generadores y Presupuestos — Concepto Cero
+
+Contexto para Claude Code. Resume las decisiones tomadas en la conversación de diseño (octubre 2026) entre Ciprian (Arq. Ricardo Gutiérrez Ciprián, área de Presupuestos e Instalaciones de Concepto Cero Arquitectura, Colima) y Claude. Leer completo antes de proponer código.
+
+---
+
+## 1. Qué estamos construyendo
+
+Un sistema de **cuantificación (generadores de obra) y presupuestos** para casas habitación. La idea es combinar dos cosas:
+
+- **Lo que hace Neodata**: catálogo de conceptos con claves, matrices de precio unitario, insumos precargados, explosión de insumos.
+- **Lo que hace ArchiCAD al documentar**: un modelo del que salen las cantidades, con un visor 2D/3D ligero.
+
+**No es un programa de diseño.** Es un visor y cuantificador: se carga el plano, se identifican los elementos y el sistema cuantifica, muestra el avance y valida.
+
+**Objetivo principal: evitar cualquier error.** Todo número debe poder rastrearse hasta su origen y verificarse visualmente en segundos.
+
+## 2. Entorno técnico
+
+- **Stack** (igual que la app de gestión de obras de Concepto Cero): React + Vite + Tailwind + Supabase + Vercel.
+- **Proyecto nuevo**: se crean **cuentas nuevas de Supabase y Vercel en plan gratuito**, separadas del sistema de gestión de obras. Hay que diseñar pensando en los límites del plan gratuito.
+- **Ciprian trabaja en Windows con PowerShell**: dar los comandos uno por uno, **sin encadenar con `&&`**.
+- **Planos**: AutoCAD (DWG/DXF) para 2D y SketchUp para 3D. **No usan ArchiCAD ni Revit.**
+- **Librerías sugeridas**:
+  - Plano 2D: Konva.js o SVG.
+  - Cargar PDF: PDF.js.
+  - Leer DXF: dxf-parser.
+  - 3D: three.js / react-three-fiber, con colores planos por material y sin texturas, para que sea ligero.
+
+## 3. Principios de diseño (no negociables)
+
+1. **Trazabilidad total.** Desde cualquier importe se baja a su precio unitario, a la matriz y al insumo. Desde cualquier cantidad se baja a los renglones del generador y a la geometría del elemento en el plano. Las fórmulas se muestran **escritas con sus valores**, por ejemplo `7.70 × 2.70 − (2.40×1.50) = 17.19`.
+2. **Las reglas son datos, no código.** Los criterios de medición y de análisis se guardan en tablas, se versionan y se pueden agregar paso a paso sin programar.
+3. **Cada renglón del generador guarda qué reglas se le aplicaron** (por ejemplo "R-MUR-003: mínimo 1.00 m").
+4. **Dos cantidades por renglón:**
+   - `cantidad_geometrica`: va a material y a Compras.
+   - `cantidad_pago`: va a mano de obra y a Destajos. Las reglas de mínimos (como la de 1 m) normalmente afectan solo esta.
+5. **El desperdicio va en la matriz, no en el generador**, para que no se aplique dos veces.
+6. **Redondeo definido**: las cantidades a 2 decimales, sin redondear pasos intermedios de forma arbitraria. Las piezas (varillas, estribos) se redondean hacia arriba cuando el criterio lo indica.
+7. **Nadie se aprueba a sí mismo.** Los estados son Borrador → Revisado → Aprobado; quien captura no es quien aprueba. Hay bitácora de cambios.
+8. **Versiones congeladas.** Al aprobar un presupuesto se congelan precios, cantidades y la **versión del conjunto de reglas**. Un cambio posterior en las reglas no mueve en silencio los presupuestos ya entregados.
+9. **Un cambio en una ficha o regla invalida la verificación** de los elementos afectados: regresan a "por verificar".
+10. **Casos de prueba (golden tests).** Casa Bielva, una vez calibrada, debe reproducirse al centavo después de cualquier cambio de código o de reglas.
+
+## 4. Anatomía del presupuesto (dominio)
+
+```
+PRESUPUESTO → Partidas → Conceptos (clave, unidad)
+  Importe = Cantidad (del GENERADOR) × Precio unitario (de la MATRIZ)
+  PU = Costo directo × factor de sobrecosto
+    Costo directo:
+      materiales (cantidad/unidad + desperdicio)
+      mano de obra (salario × FSR ÷ rendimiento de cuadrilla)
+      herramienta menor (% de la MO)
+      equipo
+      básicos (morteros y concretos reutilizables)
+    Sobrecosto: indirectos + financiamiento + utilidad + cargos adicionales
+```
+
+**Explosión de insumos**: cantidad × matriz, sumada en toda la obra. Es la lista de compra (va a Compras) y la mano de obra (va a Destajos).
+
+**Generador**: la memoria de cálculo de cada cantidad. Se usa en tres momentos: el presupuesto, las compras y el control de obra (avance, estimaciones y destajos).
+
+## 5. Arquitectura en capas
+
+```
+1. Insumos                 ← precios conectados a Compras (último, promedio 90 días, cotización)
+2. Conceptos + matrices    ← catálogo con claves (tipo Neodata)
+3. Elementos tipo          ← del cálculo estructural: sección + armado (Z-1, ZC-1, CD-1, K-1, CC-1, T-1, L-1…)
+4. Fichas de análisis      ← análisis unitario por elemento tipo (por ml, m² o pza): acero por diámetro, concreto, cimbra…
+5. Reglas de medición      ← criterios de la oficina, versionados
+6. Ensambles / sistemas    ← ej. Muro M1 = block + castillos + cadena + aplanados + pintura
+7. Prototipos de casa      ← casas ya hechas como plantilla (Casa Bielva primero)
+8. Proyecto                ← copia de un prototipo + geometría en el plano + ajustes
+9. Generador → Presupuesto → Explosión de insumos → Compras / Destajos / Programa de obra
+```
+
+**Duplicar una casa**: elegir prototipo → ajustar parámetros y medidas → cambiar acabados (básico, medio, premium) → ajustes manuales → **comparativo contra el original que muestre solo lo que cambió**.
+
+## 6. Codificación
+
+**Conceptos**, con formato `PP.SS.CCC` (partida, subpartida, concepto):
+
+| Clave | Concepto |
+|---|---|
+| `02.01.001` | Excavación a mano en cepa |
+| `02.02.020` | Concreto en zapata corrida |
+| `02.02.031` | Acero #3 en cimentación |
+| `03.02.015` | Muro de block 15 |
+| `03.03.004` | Castillo K-1 |
+| `03.04.002` | Cadena de cerramiento CC-1 |
+
+Partidas usadas en el prototipo: 02 Cimentación, 03 Albañilería, 04 Pisos y firmes, 05 Estructura, 06 Acabados. **El catálogo definitivo está por armarse desde cero.**
+
+**Acero**: una clave por diámetro (#2.5, #3, #4, #5, #6), para que la explosión dé kg por diámetro.
+
+**Elementos en el plano**: tipo + ubicación por ejes.
+
+| Código | Elemento |
+|---|---|
+| `M-A-1-3` | Muro sobre eje A, entre ejes 1 y 3 |
+| `K-A1` | Castillo en la intersección A-1 |
+| `ZC-A-1-3` | Zapata corrida bajo ese muro |
+| `F-PB-01` | Firme 01 de planta baja |
+| `L-N1-01` | Losa 01 del nivel 1 |
+
+## 7. Fichas de análisis unitario — método de trabajo acordado
+
+**Se definen una por una**, en este orden (sigue la obra):
+
+1. Zapata corrida
+2. Zapata aislada
+3. Cadena de desplante
+4. Castillos
+5. Muros (con la regla de 1 m y la cadena a 2.20)
+6. Cadena de cerramiento
+7. Trabes
+8. Losa
+9. Firmes
+10. Acabados
+
+**Cada ficha tiene siempre la misma estructura:**
+
+1. **Unidad de análisis**: por ml, m² o pza. La oficina analiza la zapata corrida **por 1.00 m de longitud**.
+2. **Datos del estructural**: sección y armado. El calculista solo da el tipo de armado (varilla y separación). **La oficina calcula** cuántas varillas caben, el peso, los kg/ml, los kg/m², el concreto, etc.
+3. **Criterios**: recubrimiento, ganchos, traslapes, redondeo de piezas, mínimos.
+4. **Pasos del cálculo**, visibles uno por uno.
+5. **Resultados por unidad**: acero por diámetro, concreto, plantilla, excavación, cimbra, alambre.
+6. **Prueba con Casa Bielva**: tiene que reproducir lo que la oficina calculó a mano.
+
+### Ejemplo trabajado: ZC-1 (0.80 × 0.20, por 1.00 m)
+
+Armado: #3 @20 y #4 @15. Criterios provisionales: recubrimiento 0.05, gancho 0.10 por lado y traslape 40Ø en varilla de 12 m.
+
+| # | Paso | Cálculo | Resultado |
+|---|---|---|---|
+| 1 | Longitudinales #3 @20 en 0.80 | ⌈(0.80 − 2×0.05) ÷ 0.20⌉ + 1 | 5 pzas × 1.00 m |
+| 2 | Traslape 40Ø cada 12 m | 40 × 9.5 mm = 0.38 m ÷ 12 | 3.17 % |
+| 3 | Acero longitudinal | 5 × 1.00 × 0.557 × 1.0317 | 2.87 kg |
+| 4 | Transversales #4 @15 por metro | 1.00 ÷ 0.15 (tramo continuo, sin +1) | 6.67 pzas |
+| 5 | Longitud transversal | 0.80 − 2×0.05 + 2×0.10 | 0.90 m |
+| 6 | Acero transversal | 6.67 × 0.90 × 0.994 | 5.96 kg |
+| Σ | Acero por ml | 2.87 + 5.96 | **8.83 kg/ml** |
+| Σ | Acero por m² | 8.83 ÷ 0.80 | **11.04 kg/m²** |
+| 7 | Concreto | 0.80 × 0.20 × 1.00 | 0.16 m³/ml |
+| 8 | Plantilla | 0.80 × 1.00 | 0.80 m²/ml |
+| 9 | Excavación | 0.80 × 0.80 (desplante) × 1.00 | 0.64 m³/ml |
+| 10 | Cimbra en costados | 0, si se cuela contra terreno (parámetro) | 0.00 m²/ml |
+| 11 | Alambre recocido | % del acero, a calibrar (va en la matriz del acero) | — |
+
+Pesos de varilla usados (kg/m): #2.5 = 0.384, #3 = 0.557, #4 = 0.994, #5 = 1.552, #6 = 2.235. **Confirmar la tabla oficial de la oficina.**
+
+**Comprobación de despiece real.** Con el análisis por metro, una zapata de 7.70 m lleva 7.70 ÷ 0.15 = 51.33 transversales. Contadas en la pieza completa son ⌈(7.70 − 0.10) ÷ 0.15⌉ + 1 = 52 (Δ 0.60 kg). El sistema debe mostrar esa diferencia, que cubre el desperdicio de la matriz.
+
+**⚠ PENDIENTE DE CONFIRMAR CON CIPRIAN:**
+
+- La dirección de cada varilla: se interpretó que el #4 @15 son las transversales repartidas en el metro y que el #3 @20 son las longitudinales repartidas en los 0.80.
+- El recubrimiento, los ganchos, el traslape y el criterio de redondeo que usa la oficina.
+
+## 8. Reglas de medición
+
+Estructura de cada regla:
+
+| Campo | Contenido |
+|---|---|
+| `codigo` | Identificador, ej. `R-MUR-003` |
+| `aplica_a` | Grupo de elemento y/o concepto |
+| `condicion` | Cuándo aplica |
+| `accion` | Qué cambia |
+| `afecta` | Material, pago o ambos |
+| `nivel` | Oficina → prototipo → proyecto |
+| `justificacion` | Por qué existe |
+| `caso_prueba` | Entrada y resultado esperado |
+| `version` | Versión de la regla |
+
+**Orden de aplicación**, siempre igual:
+
+1. Geometría.
+2. Reglas geométricas (franjas, deducción de vanos, cruces de muros).
+3. Cantidad de material.
+4. Reglas de pago (mínimos, redondeos).
+5. Cantidad de mano de obra.
+
+**Reglas ya identificadas por Ciprian:**
+
+- **Mínimo 1 m**: un elemento de menos de 1 m se cuantifica como 1 m. Ejemplo: un muro de 0.60 (o 0.98) × 3.00 m se toma como 1.00 × 3.00. *Por confirmar si aplica solo al pago o también al material* (la propuesta es solo al pago).
+- **Cadena de cerramiento a 2.20 m**: parte el muro en franjas. Ejemplo con un muro de 4.00 m y losa a 2.70:
+
+  | Franja | Altura | Cantidad |
+  |---|---|---|
+  | Block bajo la cadena | 0.00–2.20 | 8.80 m² |
+  | Cadena | 2.20–2.40 | 4.00 ml |
+  | Block sobre la cadena | 2.40–2.70 | 1.20 m² |
+  | **Total de block** | | **10.00 m²** (no 10.80) |
+
+  Esa cadena también sirve de dintel: hay que avisar cuando un vano supera 2.20 m.
+- **Acero en kg** en zapatas y demás elementos, por despiece desde la ficha.
+
+**Detalles que suelen saltarse** (convertir en reglas o en checklist):
+
+- **Acero**: traslapes, ganchos, varilla de 12 m y desperdicio por corte, alambre recocido, silletas y separadores.
+- **Cimbra**: por área de contacto (costados de cadenas, castillos y trabes) y fronteras de losa.
+- **Excavación**: abundamiento para acarreos; relleno = excavación − volumen de cimentación.
+- **Muros**: no duplicar en cruces (definir si se mide a ejes o a paños); pretiles.
+- **Acabados**: boquillas, aristas y goteros en ml; entortado de azotea con espesor promedio.
+- **Losa**: huecos (definir el tamaño mínimo que se descuenta), bastones, columpios, dalas de repartición.
+- **Escaleras**: peraltes, rampa y armado.
+- **Varios**: pruebas de laboratorio, impermeabilización de cadena de desplante, limpieza y acarreos finales.
+
+## 9. Visor (interfaz principal)
+
+Hay un prototipo funcional de referencia en `referencia/visor-generadores.html` (HTML + three.js, datos de ejemplo). Funciones que deben conservarse:
+
+- **Plano 2D** con ejes, cotas y elementos con código. Clic en un elemento muestra su generador con las fórmulas y casillas para asignar conceptos.
+- **Semáforo por elemento**:
+  - ⬜ Sin cuantificar
+  - 🟨 Parcial
+  - 🟦 Cuantificado, por verificar
+  - 🟩 Verificado
+  - 🟥 Conflicto (por ejemplo, tramos que no cierran con la cota: 5.55 vs 5.70)
+- **Partidas con barras de avance** y filtro por grupo (cimentación, muros, castillos, firmes, losas).
+- **Selección por concepto**: al elegir un concepto del generador consolidado, se seleccionan y **numeran** en el plano todos los elementos que lo generan, el resto se atenúa, y se muestra la lista con cantidades. La **suma se concilia contra el consolidado**. Pasar el mouse por la lista resalta el elemento.
+- **Modelo 3D ligero**: los muros se extruyen por altura y las losas por espesor, con color por material o por estatus. Clic en 3D selecciona.
+- **Cruces de validación**:
+  - Firmes = área de losa.
+  - Muros exteriores = perímetro.
+  - Castillo en cada extremo de muro.
+  - Zapata bajo cada muro.
+  - Cuantía de acero en rango (kg/m³).
+- **Ficha de análisis editable**, ligada a los generadores.
+- **Plano de calco**: cargar una imagen o PDF de fondo (en la versión real, calibrada con una cota conocida).
+
+Funciones planeadas: locales con cuadro de acabados, vanos con catálogo de cancelería, capa de instalaciones (salidas como puntos, tuberías en ml), modo obra (avance y destajo sobre el mismo plano), comparar versiones de plano y exportar el plano de cuantificación en PDF.
+
+## 10. Importación de planos
+
+- **AutoCAD → DXF** (ruta principal). Requiere un **estándar de capas** de la oficina:
+
+  | Capa | Contenido |
+  |---|---|
+  | `CC-EJES` | Ejes |
+  | `CC-MURO-M1` / `CC-MURO-M2` | Muros por tipo de ensamble |
+  | `CC-CASTILLO` | Castillos |
+  | `CC-FIRME` | Polilíneas cerradas de firmes |
+  | `CC-LOSA` | Polilíneas cerradas de losas |
+  | `CC-VANO-V` / `CC-VANO-P` | Bloques de ventanas y puertas, con atributos de ancho y alto |
+
+  Sin estándar de capas, el respaldo es calcar sobre una imagen calibrada.
+- **SketchUp**: exportar glTF/DAE para el visor 3D. Usar etiquetas y componentes con nombre (`M1`, `K-1`, `ZC-1`) y el *Generate Report* en CSV para la revisión cruzada de volúmenes.
+- **Detección por IA sobre imágenes**: solo como sugerencia que alguien confirma, nunca como cálculo final.
+
+## 11. Modelo de datos inicial (borrador para Supabase)
+
+```sql
+-- Catálogos
+insumos            (id, clave, descripcion, unidad, tipo /*material|mo|equipo*/, precio, precio_fuente, actualizado_en)
+conceptos          (id, clave /*PP.SS.CCC*/, descripcion, unidad, partida)
+matrices           (concepto_id, insumo_id, cantidad_por_unidad, desperdicio_pct)
+varillas           (numero /*'3','4'…*/, diametro_mm, kg_m)
+
+-- Estructural y análisis
+elementos_tipo     (id, codigo /*ZC-1*/, grupo /*ZC|Z|CD|K|M|CC|T|L|F*/, seccion jsonb, armado jsonb, fuente /*plano estructural*/)
+fichas             (id, elemento_tipo_id, version, unidad_analisis /*ml|m2|pza*/, parametros jsonb, resultados jsonb, aprobada_por, aprobada_en)
+reglas             (id, codigo, aplica_a jsonb, condicion jsonb, accion jsonb, afecta /*material|pago|ambos*/, nivel /*oficina|prototipo|proyecto*/, justificacion, version, activa)
+casos_prueba       (id, regla_id | ficha_id, entrada jsonb, esperado jsonb)
+ensambles          (id, codigo /*M1*/, descripcion) ; ensamble_conceptos (ensamble_id, concepto_id, formula)
+
+-- Proyecto
+proyectos          (id, nombre, prototipo_origen_id, version_reglas, estado)
+niveles            (proyecto_id, nombre, cota /*NPT, lecho bajo losa…*/)
+ejes               (proyecto_id, nombre, orientacion, posicion)
+elementos          (id, proyecto_id, codigo /*M-A-1-3*/, elemento_tipo_id | ensamble_id, nivel, geometria jsonb, ubicacion)
+generador_renglones(id, elemento_id, concepto_id, cantidad_geometrica, cantidad_pago, formula_texto, reglas_aplicadas jsonb,
+                    asignado bool, capturado_por, verificado_por, verificado_en)
+presupuestos       (id, proyecto_id, version, estado /*borrador|revisado|aprobado*/, congelado_en, snapshot jsonb)
+bitacora           (id, tabla, registro_id, campo, valor_anterior, valor_nuevo, usuario, fecha)
+```
+
+Notas:
+
+- Las **cantidades se calculan** a partir de la geometría, la ficha y las reglas. Se guardan con su fórmula en texto para poder auditarlas.
+- Usar RLS de Supabase con roles: captura, revisión, aprobación, solo lectura (sin costos).
+
+## 12. Plan inmediato: prueba con Casa Bielva
+
+Ciprian va a compartir la información de Casa Bielva. Pasos:
+
+1. **Reunir**: planos arquitectónicos y **estructurales** (DWG/PDF), generadores hechos a mano, presupuesto y, de ser posible, **compras y destajos reales**.
+2. **Inventariar los elementos tipo** del estructural: zapatas, cadenas, castillos, trabes, losas, con su armado.
+3. **Ficha 1: zapata corrida**, usando los datos reales de Bielva. Confirmar ganchos, recubrimiento, traslapes y redondeo.
+4. **Comparar** el resultado de la ficha contra los generadores a mano de Bielva. Cada diferencia termina siendo una regla nueva, un error del generador original o un dato para calibrar.
+5. Seguir con las fichas en el orden de la sección 7, **una a la vez**.
+6. Al terminar, congelar Casa Bielva como **prototipo** y como **caso de prueba permanente**.
+
+**Fase 1 técnica sugerida**:
+
+1. Proyecto Vite + Supabase con las tablas de catálogos, varillas, elementos tipo y fichas.
+2. Pantalla de la ficha de zapata corrida (editable, con pasos visibles), validada contra Bielva.
+3. Después, el visor 2D.
+
+## 13. Decisiones abiertas
+
+- [ ] Dirección de varillas e interpretación del análisis de la ZC (sección 7).
+- [ ] Recubrimiento, ganchos, traslapes y redondeo oficiales de la oficina.
+- [ ] Tabla oficial de pesos de varilla.
+- [ ] La regla de 1 m: ¿aplica al pago, al material o a ambos?
+- [ ] Muros: ¿se miden a ejes o a paños? ¿Cómo se tratan los cruces?
+- [ ] Vanos: ¿a partir de qué área se descuentan?
+- [ ] Cimbra en zapatas: ¿se cuela contra terreno o lleva cimbra?
+- [ ] Catálogo de claves definitivo (desde cero).
+- [ ] Estándar de capas de AutoCAD (`CC-*`) y bloques de vanos con atributos.
+- [ ] Fuente de precios de Compras (módulo de la app actual u otra plataforma) y cómo se conecta.
