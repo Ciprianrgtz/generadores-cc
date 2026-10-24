@@ -308,6 +308,16 @@ Ciprian va a compartir la información de Casa Bielva. Pasos:
 - 43 conceptos hacen el 80 % del importe y 33 insumos el 80 % del material: la verificación se prioriza ahí.
 - Señales a validar automáticamente: conceptos en 0 (11) o en 1 (34), cantidades iguales en unidades distintas, unidades sin norma (`PZA` / `PZA.`), claves Neodata con sufijos (`D'`, `B'`, `*`), plantillas de generadores copiadas de otra casa (el catálogo de Bielva trae datos de Casa Palma Real).
 
+### Planos DXF de Bielva (`...\13 - CASA BIELVA\PLANTAS ARQUITECTONICAS\*.dxf`)
+
+- Dibujados a escala 1:1 en metros; el model space trae varias copias de cada planta lado a lado ("distancia de los planos: 15 m").
+- **Ejes**: X-00…X-08 son horizontales (a lo largo, 0.00 · 4.91 · 5.51 · 5.91 · 8.79 · 10.37 · 15.15 · 16.73 · 20.00) y Y-00…Y-04 verticales (a lo ancho, 0.00 · 1.07 · 3.27 · 4.35 · 7.00). Casa de 7.00 × 20.00 m a ejes.
+- **Niveles**: desplante de zapata −0.80, lecho superior de zapata −0.60, terreno ±0.00, piso terminado +0.45, lecho inferior de dala de cerramiento +2.65, losa de azotea +3.45 / +3.65.
+- **Elementos tipo**: ZC-1, ZC-2, CC-1…9 (colindante), CI-1…7 (intermedia), CT-1 y CT-2 (Armex 15x20-4, f'c 250), TL-1 (25×25, 4#4, E#3 @10-15-10), DD-1 (Armex 15x15-4, f'c 200), K-1 (6#3, E#2 @20), K-2, K-3 (8#3, 2E#2 @20), K-A (Armex 15x15-4), DC-1, DCo-1, T-1, T-2, N-1, LV-20 (vigueta y bovedilla), LM-10, MRH-1.
+- El plano trae la tabla ACI 318 de **recubrimientos** (7.5 cm contra suelo; 5.0/4.0 expuesto; 4.0/2.0 interior), **ganchos** estándar (90°, 135°, 180°) y traslape > 40 Db.
+- **Capas**: ya existe un estándar parcial `CC-` (CC- EJES, CC- MUROS DE CARGA, CC- COTAS…), pero los elementos estructurales están en capas mezcladas (PROYECCIÓN DE ZAPATA, CONTRATRABE, ARMADO, E-castillos…) y hay ~27,000 líneas en la capa 0. Muros como líneas dobles, sin polilíneas cerradas de firmes/losas ni bloques de vanos con atributos.
+- **Comprobación**: con la geometría de la capa PROYECCIÓN DE ZAPATA se reproduce el **22.56 ml** de Neodata: 4.82 + 4.60 + (4.97 + 0.85) + 4.76 + 2.56. En la esquina superior derecha el cruce de 0.80 × 0.80 se cuenta en los dos tramos (medido por paño exterior).
+
 ## 14. Decisiones abiertas
 
 - [ ] Dirección de varillas e interpretación del análisis de la ZC (sección 7).
