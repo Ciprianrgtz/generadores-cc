@@ -21,6 +21,7 @@ Un sistema de **cuantificación (generadores de obra) y presupuestos** para casa
 - **Proyecto nuevo**: se crean **cuentas nuevas de Supabase y Vercel en plan gratuito**, separadas del sistema de gestión de obras. Hay que diseñar pensando en los límites del plan gratuito.
 - **Ciprian trabaja en Windows con PowerShell**: dar los comandos uno por uno, **sin encadenar con `&&`**.
 - **Planos**: AutoCAD (DWG/DXF) para 2D y SketchUp para 3D. **No usan ArchiCAD ni Revit.**
+- **Presupuesto actual**: se arma en **Neodata** y se exporta a Excel (reportes "b) Estándar", "j) Totales por Tipo", "a/e) Listado de insumos"). Las cantidades se miden en AutoCAD y se anotan aparte. La mano de obra está en Neodata como **cuadrillas con rendimiento**, con precios ya establecidos.
 - **Librerías sugeridas**:
   - Plano 2D: Konva.js o SVG.
   - Cargar PDF: PDF.js.
@@ -195,6 +196,7 @@ Estructura de cada regla:
 
   Esa cadena también sirve de dintel: hay que avisar cuando un vano supera 2.20 m.
 - **Acero en kg** en zapatas y demás elementos, por despiece desde la ficha.
+- **Muro de enrase, mínimo 1.00 m de altura**: el m² se calcula como `ml × max(altura, 1.00)`. Si el enrase mide menos de 1.00 m de alto, se cuantifica como 1.00 m² por ml (por eso en Bielva el muro de enrase CIM21D' = 22.56 m², igual a los 22.56 ml de dala). *Por confirmar si afecta solo al pago o también al material.*
 
 **Detalles que suelen saltarse** (convertir en reglas o en checklist):
 
@@ -298,12 +300,22 @@ Ciprian va a compartir la información de Casa Bielva. Pasos:
 2. Pantalla de la ficha de zapata corrida (editable, con pasos visibles), validada contra Bielva.
 3. Después, el visor 2D.
 
-## 13. Decisiones abiertas
+## 13. Hallazgos del presupuesto de Casa Bielva (Neodata, ago-2026)
+
+- Total $1,338,708.63 sin IVA, 146 conceptos, 21 partidas en 4 bloques: obra negra 32.7 %, obra gris 22.6 %, instalaciones 12.6 %, acabados 32.1 %.
+- Por tipo de costo: **mano de obra 46 %**, materiales 43 %, subcontratos 8.6 %, equipo 2.4 %. Los listados de insumos exportados solo traen materiales; la MO no se puede rastrear hoy → en el sistema la MO es insumo (cuadrilla + rendimiento) para que la explosión dé también Destajos.
+- **Factor de sobrecosto ajustable**: en la versión del 6-ago, costo = costo directo × 1.10 en todos los conceptos; cambia entre versiones. Se guarda como parámetro de cada versión de presupuesto y se congela al aprobar.
+- 43 conceptos hacen el 80 % del importe y 33 insumos el 80 % del material: la verificación se prioriza ahí.
+- Señales a validar automáticamente: conceptos en 0 (11) o en 1 (34), cantidades iguales en unidades distintas, unidades sin norma (`PZA` / `PZA.`), claves Neodata con sufijos (`D'`, `B'`, `*`), plantillas de generadores copiadas de otra casa (el catálogo de Bielva trae datos de Casa Palma Real).
+
+## 14. Decisiones abiertas
 
 - [ ] Dirección de varillas e interpretación del análisis de la ZC (sección 7).
 - [ ] Recubrimiento, ganchos, traslapes y redondeo oficiales de la oficina.
 - [ ] Tabla oficial de pesos de varilla.
 - [ ] La regla de 1 m: ¿aplica al pago, al material o a ambos?
+- [ ] La regla del muro de enrase (mínimo 1.00 m de alto): ¿pago, material o ambos?
+- [ ] Reporte de Neodata con las matrices (tarjetas de PU) y el catálogo de cuadrillas/salarios, para cargar matrices y MO.
 - [ ] Muros: ¿se miden a ejes o a paños? ¿Cómo se tratan los cruces?
 - [ ] Vanos: ¿a partir de qué área se descuentan?
 - [ ] Cimbra en zapatas: ¿se cuela contra terreno o lleva cimbra?
