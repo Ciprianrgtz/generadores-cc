@@ -318,6 +318,15 @@ Ciprian va a compartir la información de Casa Bielva. Pasos:
 - **Capas**: ya existe un estándar parcial `CC-` (CC- EJES, CC- MUROS DE CARGA, CC- COTAS…), pero los elementos estructurales están en capas mezcladas (PROYECCIÓN DE ZAPATA, CONTRATRABE, ARMADO, E-castillos…) y hay ~27,000 líneas en la capa 0. Muros como líneas dobles, sin polilíneas cerradas de firmes/losas ni bloques de vanos con atributos.
 - **Comprobación**: con la geometría de la capa PROYECCIÓN DE ZAPATA se reproduce el **22.56 ml** de Neodata: 4.82 + 4.60 + (4.97 + 0.85) + 4.76 + 2.56. En la esquina superior derecha el cruce de 0.80 × 0.80 se cuenta en los dos tramos (medido por paño exterior).
 
+### Método de la plantilla de generadores (acero de ZC, bloque CIM05B) — decidido con Ciprian
+
+- **Análisis por metro**, porque así se paga en obra. Por la misma razón algunos conceptos usan unidades distintas a las tradicionales; se aceptan sugerencias, pero por ahora se respeta el método.
+- Transversales: `n = 1.00 ÷ sep + 1`, largo `(ancho − 2·rec) + 2·gancho`. Longitudinales: `n = ancho ÷ sep + 1`, largo por metro `(1.00 − rec) + gancho`. `kg = n × largo × kg/m × 1.03`.
+- **El 1.03 es desperdicio** → parámetro `desperdicio` (3 %, editable). La ficha muestra el acero neto y el desperdicio. Al importar las matrices de Neodata, revisar que el acero no traiga desperdicio otra vez.
+- **Recubrimiento editable** (la plantilla usa 0.02 por lado; el estructural de Bielva pide 7.5 cm contra suelo). Gancho 0.18 por lado, también editable.
+- El **despiece real por tramos** se muestra solo como comparativo informativo; no cambia la cantidad del generador.
+- ZC-01 = 21.71 ml × 7.182849 kg/ml = **155.94 kg** (golden test en `src/dominio/fichas/zapataCorrida.test.js`). ZC-01 21.71 + ZC-02 0.85 = 22.56 ml, igual que el DXF.
+
 ## 14. Decisiones abiertas
 
 - [ ] Dirección de varillas e interpretación del análisis de la ZC (sección 7).

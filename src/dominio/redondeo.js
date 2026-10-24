@@ -4,3 +4,7 @@ export const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100
 
 export const fmt = (n, dec = 2) =>
   Number(n).toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec })
+
+// Datos de entrada (medidas, criterios): se muestran tal cual se capturaron, sin redondear.
+export const dato = (n) =>
+  Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
