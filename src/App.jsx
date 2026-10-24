@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { supabaseConfigurado } from './lib/supabase'
 import { useVarillas } from './lib/useVarillas'
+import { useSesion, salir } from './lib/useSesion'
 import FichaZapataCorrida from './componentes/FichaZapataCorrida'
+import Login from './componentes/Login'
+
+const ROLES = { lectura: 'Solo lectura', captura: 'Captura', revision: 'Revisión', aprobacion: 'Aprobación' }
 
 function Conexion({ cargando, error, total }) {
   if (!supabaseConfigurado)
@@ -72,17 +76,44 @@ const VISTAS = [
 
 export default function App() {
   const varillas = useVarillas()
+  const { sesion, perfil, cargando } = useSesion()
   const [vista, setVista] = useState('ficha-zc')
+
+  const encabezado = (
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-white px-4 py-3">
+      <div>
+        <h1 className="text-xl font-bold">Generadores y Presupuestos</h1>
+        <p className="text-sm text-slate-500">Concepto Cero Arquitectura · Casa Bielva</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-4">
+        <Conexion {...varillas} total={varillas.datos.length} />
+        {sesion && (
+          <span className="flex items-center gap-2 text-sm">
+            <span>
+              <b>{perfil?.nombre ?? sesion.user.email}</b>
+              {perfil && <span className="text-slate-500"> · {ROLES[perfil.rol]}</span>}
+            </span>
+            <button onClick={salir} className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">
+              Salir
+            </button>
+          </span>
+        )}
+      </div>
+    </header>
+  )
+
+  if (cargando) return encabezado
+  if (supabaseConfigurado && !sesion)
+    return (
+      <div className="min-h-screen">
+        {encabezado}
+        <Login />
+      </div>
+    )
 
   return (
     <div className="min-h-screen">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 bg-white px-4 py-3">
-        <div>
-          <h1 className="text-xl font-bold">Generadores y Presupuestos</h1>
-          <p className="text-sm text-slate-500">Concepto Cero Arquitectura · Casa Bielva</p>
-        </div>
-        <Conexion {...varillas} total={varillas.datos.length} />
-      </header>
+      {encabezado}
 
       <nav className="flex gap-1 border-b border-slate-300 bg-white px-4">
         {VISTAS.map(([id, nombre]) => (
@@ -99,7 +130,7 @@ export default function App() {
       </nav>
 
       <main className="p-4">
-        {vista === 'ficha-zc' && <FichaZapataCorrida varillas={varillas.datos} />}
+        {vista === 'ficha-zc' && <FichaZapataCorrida varillas={varillas.datos} perfil={perfil} />}
         {vista === 'varillas' && <TablaVarillas datos={varillas.datos} />}
       </main>
     </div>
