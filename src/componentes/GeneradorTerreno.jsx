@@ -3,6 +3,7 @@ import { analizarTerreno, UNIDADES_DXF, leerPoligonosDxf, validarPoligono } from
 import { dato, fmt, unidadTexto } from '../dominio/redondeo'
 import * as repo from '../lib/proyectosRepo'
 import { avisoStyle } from '../lib/ui'
+import ComoSeGenera from './ComoSeGenera'
 import { Aviso, Boton, BotonIcono, Campo, Entrada, Segmentos, Seccion, Tarjeta } from './ui'
 
 const num = (v) => {
@@ -46,7 +47,8 @@ export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, on
         setLargo(d.largo != null ? texto(d.largo) : '')
         if (d.vertices?.length) setVertices(d.vertices.map(([x, y]) => [texto(x), texto(y)]))
         setOrigen(d.origen ?? null)
-        setReferencia(d.referencia != null ? texto(d.referencia) : '')
+        // la cantidad de Neodata es de cada concepto, no del terreno: solo se recupera si este concepto ya tenía análisis
+        setReferencia(g && d.referencia != null ? texto(d.referencia) : '')
       })
       .catch((e) => vivo && setMensaje({ tipo: 'error', texto: repo.mensajeError(e) }))
     return () => {
@@ -221,6 +223,7 @@ export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, on
         </Tarjeta>
 
         <div className="grid min-w-0 content-start gap-4">
+          <ComoSeGenera concepto={concepto} generador={guardado} terreno={proyecto.terreno} compacto />
           <Tarjeta className="p-4">
             {r ? <PlanoTerreno r={r} /> : <p className="py-10 text-center text-sm text-cc-suave">{motivo ?? 'Captura el terreno para ver el dibujo.'}</p>}
           </Tarjeta>

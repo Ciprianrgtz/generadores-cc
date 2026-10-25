@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { LISTA_METODOS } from '../dominio/metodos'
 import { supabase } from '../lib/supabase'
 import { Boton, Chip, Seccion, Tarjeta } from './ui'
 
@@ -8,38 +9,6 @@ import { Boton, Chip, Seccion, Tarjeta } from './ui'
  * sale su volumen. Aquí queda escrito el método con su fórmula, para que cualquiera
  * que ayude con los generadores entienda qué se hace y por qué.
  */
-const METODOS = [
-  {
-    id: 'terreno',
-    nombre: 'Superficie del terreno',
-    aplica: 'Limpia y despalme, trazo y nivelación y todo lo que se mide por la superficie del terreno.',
-    unidad: 'm²',
-    pasos: [
-      'Se toma la superficie del terreno del proyecto (se captura una sola vez y la usan todos los conceptos).',
-      'Terreno regular: ancho × largo. Terreno irregular: vértices en metros, o una polilínea cerrada de AutoCAD en la capa «terreno» (fórmula de la lazada: ½ × |Σ(xᵢ·yᵢ₊₁ − xᵢ₊₁·yᵢ)|).',
-      'La cantidad del concepto es esa superficie, en m².',
-      'El terreno queda guardado en el proyecto y se dibuja en el modelo 3D.',
-      'Se compara con la cantidad que trae Neodata para detectar diferencias.',
-    ],
-    criterios: 'No lleva criterios de la oficina: solo las medidas del terreno. Del DXF se respeta la unidad del dibujo (metros, centímetros o milímetros).',
-  },
-  {
-    id: 'zapata_corrida',
-    nombre: 'Zapata corrida (acero de la parrilla)',
-    aplica: 'Acero de refuerzo de zapatas corridas (ZC-01, ZC-02…). Se analiza por 1.00 m de zapata, porque así se paga en obra.',
-    unidad: 'kg',
-    pasos: [
-      'Sentido corto (transversal): varillas = 1.00 ÷ separación + 1; cada una mide (ancho − 2 × recubrimiento) + 2 × gancho.',
-      'Sentido largo (longitudinal): varillas = ancho ÷ separación + 1; cada una mide (1.00 − recubrimiento) + gancho.',
-      'Peso = varillas × largo × kg/m × (1 + desperdicio). Se suma el de los dos sentidos: kg por metro lineal.',
-      'Cantidad del generador = metros lineales de zapata × kg por metro lineal.',
-      'Se compara con Neodata y, como comparativo informativo, con el despiece real por tramos del DXF.',
-    ],
-    criterios: 'Criterios editables en la ficha: recubrimiento por lado, gancho por lado y desperdicio. La ficha tiene versiones y flujo Borrador → Revisado → Aprobado.',
-    abrir: true,
-  },
-]
-
 export default function Metodos({ onAbrirZapata }) {
   const [usos, setUsos] = useState({}) // conceptos que usan cada método, en todos los proyectos
   const [error, setError] = useState(null)
@@ -68,7 +37,7 @@ export default function Metodos({ onAbrirZapata }) {
       </div>
       {error && <p className="text-sm" style={{ color: '#f87171' }}>{error}</p>}
 
-      {METODOS.map((m) => (
+      {LISTA_METODOS.map((m) => (
         <Tarjeta key={m.id} className="grid gap-3 p-5">
           <div className="flex flex-wrap items-center gap-3">
             <h3 className="text-lg font-bold">{m.nombre}</h3>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as proy from '../lib/proyectosRepo'
-import { fmt, unidadTexto } from '../dominio/redondeo'
+import ComoSeGenera from './ComoSeGenera'
 import { readSheet } from 'read-excel-file/browser'
 import { leerCatalogoNeodata } from '../dominio/importarNeodata'
 import * as repo from '../lib/paquetesRepo'
@@ -16,7 +16,7 @@ const ESTADOS = {
   listo: { nombre: 'Listo', color: 'verde' },
 }
 
-export default function PaqueteDetalle({ paqueteId, perfil, onEliminado, onAbrirAnalisis, onCambio }) {
+export default function PaqueteDetalle({ paqueteId, perfil, terreno, onEliminado, onAbrirAnalisis, onCambio }) {
   const [datos, setDatos] = useState(null)
   const [sel, setSel] = useState(null) // id del concepto elegido
   const [error, setError] = useState(null)
@@ -305,6 +305,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, onEliminado, onAbrir
               concepto={concepto}
               partida={partidaDe(concepto)}
               puedeEscribir={puedeEscribir}
+              terreno={terreno}
               hacer={hacer}
               onQuitado={() => setSel(null)}
               onAbrirAnalisis={onAbrirAnalisis}
@@ -324,9 +325,9 @@ const ANALISIS = {
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
-const sugerido = (c) => (/limpia y despalme/i.test(c.descripcion) ? 'terreno' : /zapata corrida/i.test(c.descripcion) ? 'zapata_corrida' : null)
+const sugerido = (c) => (/limpia y despalme|trazo y nivelaci[oó]n/i.test(c.descripcion) ? 'terreno' : /zapata corrida/i.test(c.descripcion) ? 'zapata_corrida' : null)
 
-function PanelConcepto({ concepto, partida, puedeEscribir, hacer, onQuitado, onAbrirAnalisis }) {
+function PanelConcepto({ concepto, partida, puedeEscribir, terreno, hacer, onQuitado, onAbrirAnalisis }) {
   const [v, setV] = useState({ clave: concepto.clave, descripcion: concepto.descripcion, unidad: concepto.unidad })
   const [gen, setGen] = useState(null) // análisis ya guardado de este concepto
   useEffect(() => {
@@ -359,12 +360,7 @@ function PanelConcepto({ concepto, partida, puedeEscribir, hacer, onQuitado, onA
           {!concepto.analisis_tipo && sug && puedeEscribir && (
             <Boton chico onClick={() => hacer(() => proy.asignarAnalisis(concepto.id, sug))}>Sugerido: {ANALISIS[sug].nombre}</Boton>
           )}
-          {gen && (
-            <p className="num text-sm">
-              Volumen: <b style={{ color: '#3ddba6' }}>{fmt(gen.cantidad)} {unidadTexto(gen.unidad ?? concepto.unidad)}</b>
-              <span className="block text-xs text-cc-suave">{gen.formula}</span>
-            </p>
-          )}
+          {concepto.analisis_tipo && <ComoSeGenera concepto={concepto} generador={gen} terreno={terreno} compacto />}
           <Boton variante="pri" disabled={!concepto.analisis_tipo} onClick={() => onAbrirAnalisis(concepto)}>
             {gen ? 'Abrir el análisis' : 'Hacer el análisis'}
           </Boton>

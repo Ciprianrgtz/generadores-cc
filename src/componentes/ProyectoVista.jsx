@@ -67,6 +67,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
             <PaqueteDetalle
               paqueteId={proy.paquete.id}
               perfil={perfil}
+              terreno={proy.terreno}
               onAbrirAnalisis={abrirAnalisis}
               onEliminado={cargar}
             />
