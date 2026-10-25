@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import * as proy from '../lib/proyectosRepo'
+import { fmt, unidadTexto } from '../dominio/redondeo'
 import { readSheet } from 'read-excel-file/browser'
 import { leerCatalogoNeodata } from '../dominio/importarNeodata'
 import * as repo from '../lib/paquetesRepo'
@@ -14,7 +16,7 @@ const ESTADOS = {
   listo: { nombre: 'Listo', color: 'verde' },
 }
 
-export default function PaqueteDetalle({ paqueteId, perfil, onVolver, onAbrirZapata }) {
+export default function PaqueteDetalle({ paqueteId, perfil, onEliminado, onAbrirAnalisis, onCambio }) {
   const [datos, setDatos] = useState(null)
   const [sel, setSel] = useState(null) // id del concepto elegido
   const [error, setError] = useState(null)
@@ -50,6 +52,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, onVolver, onAbrirZap
     try {
       await fn()
       await cargar()
+      onCambio?.()
       return true
     } catch (e) {
       setError(mensajeError(e))
@@ -101,7 +104,6 @@ export default function PaqueteDetalle({ paqueteId, perfil, onVolver, onAbrirZap
   return (
     <div className="grid gap-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Boton onClick={onVolver}>← Paquetes</Boton>
         {renombrando ? (
           <FormularioNombre
             inicial={datos.cabecera.nombre}
@@ -146,7 +148,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, onVolver, onAbrirZap
           onEliminar={async () => {
             try {
               await repo.eliminarPaquete(paqueteId)
-              onVolver()
+              onEliminado()
             } catch (e) {
               setError(mensajeError(e))
             }
@@ -305,7 +307,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, onVolver, onAbrirZap
               puedeEscribir={puedeEscribir}
               hacer={hacer}
               onQuitado={() => setSel(null)}
-              onAbrirZapata={onAbrirZapata}
+              onAbrirAnalisis={onAbrirAnalisis}
             />
           ) : (
             <Tarjeta className="p-5 text-sm text-cc-suave">Elige un concepto de la lista para ver su análisis.</Tarjeta>
@@ -316,14 +318,58 @@ export default function PaqueteDetalle({ paqueteId, perfil, onVolver, onAbrirZap
   )
 }
 
-function PanelConcepto({ concepto, partida, puedeEscribir, hacer, onQuitado, onAbrirZapata }) {
+const ANALISIS = {
+  terreno: { nombre: 'Superficie del terreno', detalle: 'Limpia y despalme, trazo… lo que se mide por el terreno' },
+  zapata_corrida: { nombre: 'Zapata corrida (ficha de acero)', detalle: 'Acero de la parrilla por metro lineal' },
+}
+
+// Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
+const sugerido = (c) => (/limpia y despalme/i.test(c.descripcion) ? 'terreno' : /zapata corrida/i.test(c.descripcion) ? 'zapata_corrida' : null)
+
+function PanelConcepto({ concepto, partida, puedeEscribir, hacer, onQuitado, onAbrirAnalisis }) {
   const [v, setV] = useState({ clave: concepto.clave, descripcion: concepto.descripcion, unidad: concepto.unidad })
+  const [gen, setGen] = useState(null) // análisis ya guardado de este concepto
+  useEffect(() => {
+    let vivo = true
+    proy.generador(concepto.id).then((g) => vivo && setGen(g)).catch(() => {})
+    return () => {
+      vivo = false
+    }
+  }, [concepto.id, concepto.estado])
+  const sug = sugerido(concepto)
   const cambio = v.clave !== concepto.clave || v.descripcion !== concepto.descripcion || v.unidad !== concepto.unidad
   const valido = v.clave.trim() && v.descripcion.trim() && v.unidad.trim()
   const campo = (k) => ({ value: v[k], disabled: !puedeEscribir, onChange: (e) => setV({ ...v, [k]: e.target.value }) })
 
   return (
     <Tarjeta className="grid gap-4 p-5">
+      <div className="rounded-xl p-3" style={{ background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.3)' }}>
+        <Seccion style={{ color: '#3ddba6' }}>Análisis y generador</Seccion>
+        <div className="mt-2 grid gap-2">
+          <Seleccion
+            value={concepto.analisis_tipo ?? ''}
+            disabled={!puedeEscribir}
+            onChange={(e) => hacer(() => proy.asignarAnalisis(concepto.id, e.target.value))}
+          >
+            <option value="">¿Cómo se analiza este concepto?</option>
+            {Object.entries(ANALISIS).map(([id, a]) => (
+              <option key={id} value={id}>{a.nombre}</option>
+            ))}
+          </Seleccion>
+          {!concepto.analisis_tipo && sug && puedeEscribir && (
+            <Boton chico onClick={() => hacer(() => proy.asignarAnalisis(concepto.id, sug))}>Sugerido: {ANALISIS[sug].nombre}</Boton>
+          )}
+          {gen && (
+            <p className="num text-sm">
+              Volumen: <b style={{ color: '#3ddba6' }}>{fmt(gen.cantidad)} {unidadTexto(gen.unidad ?? concepto.unidad)}</b>
+              <span className="block text-xs text-cc-suave">{gen.formula}</span>
+            </p>
+          )}
+          <Boton variante="pri" disabled={!concepto.analisis_tipo} onClick={() => onAbrirAnalisis(concepto)}>
+            {gen ? 'Abrir el análisis' : 'Hacer el análisis'}
+          </Boton>
+        </div>
+      </div>
       <Seccion>{partida?.clave} · concepto del paquete (editable)</Seccion>
       <div className="grid grid-cols-[1fr_88px] gap-2">
         <Campo etiqueta="Clave">
@@ -344,20 +390,13 @@ function PanelConcepto({ concepto, partida, puedeEscribir, hacer, onQuitado, onA
       )}
       <p className="-mt-2 text-xs text-cc-tenue">Los cambios son solo de este paquete: el catálogo y otras casas no se tocan.</p>
 
-      <Campo etiqueta="Estado del análisis">
+      <Campo etiqueta="Estado del concepto">
         <Seleccion value={concepto.estado} disabled={!puedeEscribir} onChange={(e) => hacer(() => repo.cambiarEstadoConcepto(concepto.id, e.target.value))}>
           {Object.entries(ESTADOS).map(([id, e]) => (
             <option key={id} value={id}>{e.nombre}</option>
           ))}
         </Seleccion>
       </Campo>
-      <div className="rounded-xl p-3 text-sm" style={{ background: 'rgba(29,158,117,0.06)', border: '1px solid rgba(29,158,117,0.25)' }}>
-        <b>Análisis y generador</b>
-        <p className="mt-1 text-xs text-cc-suave">Aquí se arma el análisis de este concepto y de él salen los volúmenes. Todavía no está conectado: lo definimos concepto por concepto.</p>
-        {/zapata corrida/i.test(concepto.descripcion) && (
-          <Boton variante="pri" className="mt-3 w-full" onClick={onAbrirZapata}>Abrir ficha de zapata corrida</Boton>
-        )}
-      </div>
       {puedeEscribir && (
         <button
           type="button"

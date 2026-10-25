@@ -8,3 +8,6 @@ export const fmt = (n, dec = 2) =>
 // Datos de entrada (medidas, criterios): se muestran tal cual se capturaron, sin redondear.
 export const dato = (n) =>
   Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 4 })
+
+// Unidad para mostrar: "M2" → "m²", "M3" → "m³", "ML" → "ml".
+export const unidadTexto = (u) => String(u ?? '').toLowerCase().replace(/(?<=m)2$/, '²').replace(/(?<=m)3$/, '³')

@@ -3,10 +3,12 @@ import { supabaseConfigurado } from './lib/supabase'
 import { useVarillas } from './lib/useVarillas'
 import { useSesion } from './lib/useSesion'
 import FichaZapataCorrida from './componentes/FichaZapataCorrida'
-import Paquetes from './componentes/Paquetes'
+import Proyectos from './componentes/Proyectos'
+import CatalogoPantalla from './componentes/CatalogoPantalla'
+import Metodos from './componentes/Metodos'
 import Layout from './componentes/Layout'
 import Login from './componentes/Login'
-import { Chip } from './componentes/ui'
+import { Boton, Chip } from './componentes/ui'
 
 function estadoConexion({ cargando, error, datos }) {
   if (!supabaseConfigurado) return { color: '#D69E2E', texto: 'Falta configurar Supabase en .env.local' }
@@ -55,15 +57,24 @@ function TablaVarillas({ datos }) {
 export default function App() {
   const varillas = useVarillas()
   const { sesion, perfil, cargando } = useSesion()
-  const [vista, setVista] = useState('paquetes')
+  const [vista, setVista] = useState('proyectos')
 
   if (cargando) return null
   if (supabaseConfigurado && !sesion) return <Login />
 
   return (
     <Layout vista={vista} onVista={setVista} sesion={sesion} perfil={perfil} conexion={estadoConexion(varillas)}>
-      {vista === 'paquetes' && <Paquetes perfil={perfil} onAbrirZapata={() => setVista('ficha-zc')} />}
-      {vista === 'ficha-zc' && <FichaZapataCorrida varillas={varillas.datos} perfil={perfil} />}
+      {vista === 'proyectos' && <Proyectos perfil={perfil} onAbrirZapata={() => setVista('ficha-zc')} />}
+      {vista === 'catalogo' && <CatalogoPantalla perfil={perfil} />}
+      {vista === 'metodos' && <Metodos onAbrirZapata={() => setVista('ficha-zc')} />}
+      {vista === 'ficha-zc' && (
+        <div className="grid gap-4">
+          <div>
+            <Boton onClick={() => setVista('metodos')}>← Métodos de análisis</Boton>
+          </div>
+          <FichaZapataCorrida varillas={varillas.datos} perfil={perfil} />
+        </div>
+      )}
       {vista === 'varillas' && <TablaVarillas datos={varillas.datos} />}
     </Layout>
   )

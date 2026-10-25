@@ -1,13 +1,13 @@
 import { useState } from 'react'
-import { Boxes, ChevronDown, ClipboardList, LogOut, Menu, Ruler, X } from 'lucide-react'
+import { BookOpen, Boxes, ChevronDown, FolderOpen, LogOut, Menu, Ruler, X } from 'lucide-react'
 import { salir } from '../lib/useSesion'
 
 // Menú lateral: mismo diseño que el de Concepto Cero (200 px abierto / 64 px colapsado,
 // grupos plegables, activo en verde con anillo). Aquí no hay rutas: se elige una vista.
 const AREAS = [
-  { id: 'generadores', titulo: 'Generadores', modulos: [{ id: 'paquetes', icon: ClipboardList, label: 'Paquetes' }] },
-  { id: 'analisis', titulo: 'Análisis', modulos: [{ id: 'ficha-zc', icon: Ruler, label: 'Zapata corrida' }] },
-  { id: 'catalogos', titulo: 'Catálogos', modulos: [{ id: 'varillas', icon: Boxes, label: 'Varillas' }] },
+  { id: 'generadores', titulo: 'Generadores', modulos: [{ id: 'proyectos', icon: FolderOpen, label: 'Proyectos' }] },
+  { id: 'analisis', titulo: 'Análisis', modulos: [{ id: 'metodos', icon: Ruler, label: 'Métodos de análisis' }] },
+  { id: 'catalogos', titulo: 'Catálogos', modulos: [{ id: 'catalogo', icon: BookOpen, label: 'Conceptos' }, { id: 'varillas', icon: Boxes, label: 'Varillas' }] },
 ]
 
 const ROLES = { lectura: 'Solo lectura', captura: 'Captura', revision: 'Revisión', aprobacion: 'Aprobación' }
@@ -79,7 +79,7 @@ export default function Layout({ vista, onVista, sesion, perfil, conexion, child
                   area.modulos.map((modulo) => {
                     const { id, label } = modulo
                     const Icon = modulo.icon
-                    const activo = vista === id
+                    const activo = vista === id || (id === 'metodos' && vista === 'ficha-zc')
                     return (
                       <button
                         key={id}
