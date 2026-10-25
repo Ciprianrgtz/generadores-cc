@@ -3,6 +3,10 @@ import { analizarZapataCorrida, aceroZapata, despieceReal, PARAMETROS_OFICINA } 
 import { fmt, r2 } from '../dominio/redondeo'
 import { varillasPorId } from '../lib/useVarillas'
 import * as repo from '../lib/fichasRepo'
+import EsquemaZapata from './EsquemaZapata'
+import { COLOR_SENTIDO } from './coloresSentido'
+import { Aviso, Boton, Campo, Chip, Entrada, Seccion, Seleccion, Tarjeta } from './ui'
+import { avisoStyle } from '../lib/ui'
 
 // Datos para verificar contra lo que ya se presupuestó en Neodata (Casa Bielva).
 // Una vez guardada la ficha, estos valores viven en la ficha misma.
@@ -71,35 +75,19 @@ const canonico = (v) =>
 const mismo = (a, b) => JSON.stringify(canonico(a)) === JSON.stringify(canonico(b))
 
 const ESTADO = {
-  borrador: { nombre: 'Borrador', clase: 'bg-st-sin' },
-  revisado: { nombre: 'Revisado', clase: 'bg-st-ver' },
-  aprobado: { nombre: 'Aprobado', clase: 'bg-st-ok' },
+  borrador: { nombre: 'Borrador', color: 'gris' },
+  revisado: { nombre: 'Revisado', color: 'azul' },
+  aprobado: { nombre: 'Aprobado', color: 'verde' },
 }
-
-function Campo({ etiqueta, children }) {
-  return (
-    <label className="grid gap-1 text-xs text-slate-500">
-      {etiqueta}
-      {children}
-    </label>
-  )
-}
-
-const claseInput =
-  'num w-full min-w-0 rounded border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 focus:border-acento focus:outline-none disabled:bg-slate-100 disabled:text-slate-500'
 
 function Grupo({ titulo, children }) {
   return (
-    <fieldset className="grid grid-cols-2 gap-3 rounded-md border border-slate-300 p-3">
-      <legend className="px-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{titulo}</legend>
+    <fieldset className="grid grid-cols-2 gap-3 rounded-xl p-3" style={{ border: '1px solid var(--cc-borde)' }}>
+      <legend className="px-1" style={{ fontSize: 10, fontWeight: 700, color: 'var(--cc-tenue)', textTransform: 'uppercase', letterSpacing: '.6px' }}>{titulo}</legend>
       {children}
     </fieldset>
   )
 }
-
-const boton = 'rounded border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40'
-const botonPri = `${boton} border-acento bg-acento text-white`
-const botonSec = `${boton} border-slate-300 bg-white text-slate-800`
 
 export default function FichaZapataCorrida({ varillas, perfil }) {
   const tabla = useMemo(() => varillasPorId(varillas), [varillas])
@@ -111,6 +99,16 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
   const [f, setF] = useState(null)
   const [mensaje, setMensaje] = useState(null)
   const [ocupado, setOcupado] = useState(false)
+  // sentido resaltado entre el esquema y la tabla de pasos: al pasar el cursor (hover) o fijado con clic
+  const [hover, setHover] = useState(null)
+  const [fijo, setFijo] = useState(null)
+  const activo = fijo ?? hover
+  const resalte = {
+    activo,
+    onEntrar: setHover,
+    onSalir: () => setHover(null),
+    onClick: (g) => setFijo((x) => (x === g ? null : g)),
+  }
 
   useEffect(() => {
     repo
@@ -155,7 +153,7 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
     }
   }, [f, tabla])
 
-  if (!varillas.length || !f) return <p className="p-4 text-sm text-slate-500">Cargando…</p>
+  if (!varillas.length || !f) return <p className="p-4 text-sm text-cc-suave">Cargando…</p>
 
   const editable = !ficha || ficha.estado === 'borrador'
   const cambios = resultado && (!ficha || !mismo(resultado.parametros, ficha.parametros))
@@ -198,16 +196,16 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
   const estado = (e, texto) => accion(() => repo.cambiarEstado(ficha.id, e), texto)
 
   const selVarilla = (k) => (
-    <select value={f[k]} disabled={!editable} onChange={(e) => set(k)(e.target.value)} className={claseInput}>
+    <Seleccion value={f[k]} disabled={!editable} onChange={(e) => set(k)(e.target.value)}>
       {varillas.map((v) => (
         <option key={v.id} value={v.id}>
           #{v.id} ({Number(v.kg_m).toFixed(3)} kg/m)
         </option>
       ))}
-    </select>
+    </Seleccion>
   )
   const numero = (k, paso = 0.01) => (
-    <input type="number" step={paso} min="0" value={f[k]} disabled={!editable} onChange={(e) => set(k)(e.target.value)} className={claseInput} />
+    <Entrada type="number" step={paso} min="0" value={f[k]} disabled={!editable} onChange={(e) => set(k)(e.target.value)} className="num" />
   )
 
   const ref = num(f.referencia)
@@ -217,89 +215,78 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
   return (
     <div className="grid gap-4">
       {/* Barra de la ficha: elemento, versión, estado y acciones */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-slate-300 bg-white px-3 py-2">
+      <Tarjeta className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
         <label className="flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Elemento</span>
-          <select value={elementoId ?? ''} onChange={(e) => setElementoId(e.target.value)} className={`${claseInput} w-auto`}>
+          <span className="text-cc-suave">Elemento</span>
+          <Seleccion value={elementoId ?? ''} onChange={(e) => setElementoId(e.target.value)} style={{ width: 'auto' }}>
             {elementos.map((e) => (
               <option key={e.id} value={e.id}>{e.codigo}</option>
             ))}
-          </select>
+          </Seleccion>
         </label>
         {historial.length > 0 && (
           <label className="flex items-center gap-2 text-sm">
-            <span className="text-slate-500">Versión</span>
-            <select value={versionVista ?? ''} onChange={(e) => cargar(e.target.value)} className={`${claseInput} w-auto`}>
+            <span className="text-cc-suave">Versión</span>
+            <Seleccion value={versionVista ?? ''} onChange={(e) => cargar(e.target.value)} style={{ width: 'auto' }}>
               {historial.map((v) => (
                 <option key={v.id} value={v.id}>v{v.version} · {ESTADO[v.estado].nombre}</option>
               ))}
-            </select>
+            </Seleccion>
           </label>
         )}
-        {ficha ? (
-          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white ${ESTADO[ficha.estado].clase}`}>
-            {ESTADO[ficha.estado].nombre}
-          </span>
-        ) : (
-          <span className="text-sm text-st-par">Sin guardar todavía</span>
-        )}
-        {cambios && editable && <span className="text-sm text-st-par">● Cambios sin guardar</span>}
+        {ficha ? <Chip color={ESTADO[ficha.estado].color}>{ESTADO[ficha.estado].nombre}</Chip> : <span className="text-sm" style={{ color: '#f0b866' }}>Sin guardar todavía</span>}
+        {cambios && editable && <span className="text-sm" style={{ color: '#f0b866' }}>● Cambios sin guardar</span>}
 
         <div className="ml-auto flex flex-wrap gap-2">
           {editable && (
-            <button className={botonPri} disabled={ocupado || !cambios || rol === 'lectura'} onClick={guardar}>
+            <Boton variante="pri" disabled={ocupado || !cambios || rol === 'lectura'} onClick={guardar}>
               {ficha ? 'Guardar borrador' : 'Guardar como borrador v1'}
-            </button>
+            </Boton>
           )}
           {ficha?.estado === 'borrador' && (
-            <button
-              className={botonSec}
+            <Boton
               disabled={ocupado || cambios || esCapturista || !['revision', 'aprobacion'].includes(rol)}
               title={esCapturista ? 'Otra persona debe revisar lo que tú capturaste' : undefined}
               onClick={() => estado('revisado', 'Ficha marcada como revisada')}
             >
               Marcar revisada
-            </button>
+            </Boton>
           )}
           {ficha?.estado === 'revisado' && (
             <>
-              <button className={botonSec} disabled={ocupado || esCapturista || !['revision', 'aprobacion'].includes(rol)} onClick={() => estado('borrador', 'Ficha regresada a borrador')}>
+              <Boton disabled={ocupado || esCapturista || !['revision', 'aprobacion'].includes(rol)} onClick={() => estado('borrador', 'Ficha regresada a borrador')}>
                 Regresar a borrador
-              </button>
-              <button className={botonPri} disabled={ocupado || esCapturista || rol !== 'aprobacion'} onClick={() => estado('aprobado', 'Ficha aprobada y congelada')}>
+              </Boton>
+              <Boton variante="pri" disabled={ocupado || esCapturista || rol !== 'aprobacion'} onClick={() => estado('aprobado', 'Ficha aprobada y congelada')}>
                 Aprobar
-              </button>
+              </Boton>
             </>
           )}
           {ficha?.estado === 'aprobado' && ficha.id === ultima?.id && (
-            <button className={botonSec} disabled={ocupado || rol === 'lectura'} onClick={nuevaVersion}>
+            <Boton disabled={ocupado || rol === 'lectura'} onClick={nuevaVersion}>
               Crear versión nueva
-            </button>
+            </Boton>
           )}
         </div>
-      </div>
+      </Tarjeta>
 
       {ficha && (
-        <p className="-mt-2 text-xs text-slate-500">
-          Capturó <b>{quien(ficha.capturado_por)}</b>
-          {ficha.revisado_por && <> · revisó <b>{quien(ficha.revisado_por)}</b></>}
-          {ficha.aprobado_por && <> · aprobó <b>{quien(ficha.aprobado_por)}</b> el {new Date(ficha.aprobado_en).toLocaleString('es-MX')}</>}
+        <p className="-mt-2 text-xs text-cc-suave">
+          Capturó <b className="text-cc-texto">{quien(ficha.capturado_por)}</b>
+          {ficha.revisado_por && <> · revisó <b className="text-cc-texto">{quien(ficha.revisado_por)}</b></>}
+          {ficha.aprobado_por && <> · aprobó <b className="text-cc-texto">{quien(ficha.aprobado_por)}</b> el {new Date(ficha.aprobado_en).toLocaleString('es-MX')}</>}
           {' · '}actualizada {new Date(ficha.actualizado_en).toLocaleString('es-MX')}
-          {esCapturista && ficha.estado !== 'aprobado' && <> · <span className="text-st-par">otra persona debe revisarla y aprobarla</span></>}
+          {esCapturista && ficha.estado !== 'aprobado' && <> · <span style={{ color: '#f0b866' }}>otra persona debe revisarla y aprobarla</span></>}
         </p>
       )}
-      {mensaje && (
-        <p className={`rounded border-l-4 bg-white px-3 py-2 text-sm ${mensaje.tipo === 'error' ? 'border-st-err text-st-err' : 'border-st-ok text-st-ok'}`}>
-          {mensaje.texto}
-        </p>
-      )}
+      {mensaje && <Aviso color={mensaje.tipo === 'error' ? 'rojo' : 'verde'}>{mensaje.texto}</Aviso>}
       {ficha?.estado === 'aprobado' && (
-        <p className="-mt-2 text-xs text-slate-500">Esta versión está aprobada y congelada. Para cambiarla, crea una versión nueva.</p>
+        <p className="-mt-2 text-xs text-cc-suave">Esta versión está aprobada y congelada. Para cambiarla, crea una versión nueva.</p>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
         <form className="grid content-start gap-3" onSubmit={(e) => e.preventDefault()}>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-cc-suave">
             {elemento?.descripcion} · análisis por 1.00 ml · fuente: {elemento?.fuente}
           </p>
           <Grupo titulo="Sección">
@@ -324,7 +311,7 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
             <Campo etiqueta="Cantidad en Neodata (kg)">{numero('referencia')}</Campo>
             <div className="col-span-2">
               <Campo etiqueta="Tramos medidos para el despiece real (m)">
-                <input value={f.tramos} disabled={!editable} onChange={(e) => set('tramos')(e.target.value)} className={claseInput} />
+                <Entrada value={f.tramos} disabled={!editable} onChange={(e) => set('tramos')(e.target.value)} className="num" />
               </Campo>
             </div>
           </Grupo>
@@ -332,11 +319,12 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
 
         {resultado && (
           <div className="grid min-w-0 content-start gap-4">
-            <Pasos resultado={resultado} codigo={elemento?.codigo} />
+            <EsquemaZapata parametros={resultado.parametros} calc={resultado.calc} tabla={tabla} {...resalte} />
+            <Pasos resultado={resultado} codigo={elemento?.codigo} {...resalte} />
             {ref > 0 && (
-              <div className={`rounded-md border border-l-4 bg-white px-3 py-2 text-sm ${cuadra ? 'border-st-ok' : 'border-st-err'}`}>
-                <b className={cuadra ? 'text-st-ok' : 'text-st-err'}>{cuadra ? '✓ Cuadra con Neodata' : '✗ No cuadra con Neodata'}</b>
-                <span className="num ml-2 text-slate-600">
+              <div style={{ ...avisoStyle(cuadra ? 'verde' : 'rojo'), padding: '10px 14px' }}>
+                <b style={{ color: cuadra ? '#34d399' : '#f87171' }}>{cuadra ? '✓ Cuadra con Neodata' : '✗ No cuadra con Neodata'}</b>
+                <span className="num ml-2 text-cc-suave">
                   ficha {fmt(resultado.generador.kg)} kg · Neodata {fmt(ref)} kg
                   {!cuadra && ` · Δ ${fmt(resultado.generador.kg - ref)} kg`}
                 </span>
@@ -350,61 +338,95 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
   )
 }
 
-function Pasos({ resultado, codigo }) {
+const encabezadoTabla = { fontSize: 10, fontWeight: 700, color: 'var(--cc-tenue)', textTransform: 'uppercase', letterSpacing: '.6px' }
+const filaSub = { background: 'rgba(255,255,255,0.04)', ...encabezadoTabla }
+const lineaFila = { borderTop: '1px solid var(--cc-borde)' }
+
+function Pasos({ resultado, codigo, activo, onEntrar, onSalir, onClick }) {
+  // a qué sentido pertenece cada fila (los pasos 1-3 son el corto, 4-6 el largo)
+  const grupos = []
+  let g = null
+  for (const p of resultado.calc.pasos) {
+    if (p.tipo === 'sub') g = p.texto.startsWith('Sentido corto') ? 'corto' : 'largo'
+    else if (p.tipo === 'total' || p.tipo === 'nota') g = null
+    grupos.push(g)
+  }
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-300 bg-white">
+    <Tarjeta className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-sm">
         <thead>
-          <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
-            <th className="w-8 px-3 py-2"></th>
-            <th className="px-3 py-2">Paso</th>
-            <th className="px-3 py-2">Cálculo</th>
-            <th className="px-3 py-2 text-right">Resultado</th>
+          <tr className="text-left" style={encabezadoTabla}>
+            <th className="w-8 px-3 py-3"></th>
+            <th className="px-3 py-3">Paso</th>
+            <th className="px-3 py-3">Cálculo</th>
+            <th className="px-3 py-3 text-right">Resultado</th>
           </tr>
         </thead>
         <tbody>
-          {resultado.calc.pasos.map((p, i) =>
-            p.tipo === 'sub' ? (
-              <tr key={i} className="bg-slate-100">
-                <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{p.texto}</td>
+          {resultado.calc.pasos.map((p, i) => {
+            const grupo = grupos[i]
+            const vivo = grupo && activo === grupo
+            const lazo = grupo
+              ? {
+                  onMouseEnter: () => onEntrar(grupo),
+                  onMouseLeave: onSalir,
+                  onClick: () => onClick(grupo),
+                  style: { cursor: 'pointer', ...(vivo ? { background: `${COLOR_SENTIDO[grupo]}22`, boxShadow: `inset 3px 0 0 ${COLOR_SENTIDO[grupo]}` } : null) },
+                }
+              : {}
+            return p.tipo === 'sub' ? (
+              <tr key={i} {...lazo} style={{ ...filaSub, ...lazo.style }}>
+                <td colSpan={4} className="px-3 py-1.5">
+                  <span style={{ color: COLOR_SENTIDO[grupo] }}>● </span>
+                  {p.texto}
+                </td>
               </tr>
             ) : (
-              <tr key={i} className={`border-t border-slate-200 ${p.tipo === 'total' ? 'bg-sky-50 font-bold' : ''} ${p.tipo === 'nota' ? 'text-slate-500' : ''}`}>
-                <td className="num px-3 py-1.5 text-xs text-slate-400">{p.tipo === 'total' ? 'Σ' : p.id ?? ''}</td>
+              <tr
+                key={i}
+                {...lazo}
+                style={{
+                  ...lineaFila,
+                  ...(p.tipo === 'total' ? { background: 'rgba(29,158,117,0.10)', fontWeight: 700 } : null),
+                  ...(p.tipo === 'nota' ? { color: 'var(--cc-suave)' } : null),
+                  ...lazo.style,
+                }}
+              >
+                <td className="num px-3 py-1.5 text-xs text-cc-tenue">{p.tipo === 'total' ? 'Σ' : p.id ?? ''}</td>
                 <td className="px-3 py-1.5">{p.texto}</td>
-                <td className="num px-3 py-1.5 text-xs text-slate-500">{p.formula}</td>
+                <td className="num px-3 py-1.5 text-xs text-cc-suave">{p.formula}</td>
                 <td className="num whitespace-nowrap px-3 py-1.5 text-right">{p.resultado}</td>
               </tr>
-            ),
-          )}
-          <tr className="bg-slate-100">
-            <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">Aplicado al generador</td>
+            )
+          })}
+          <tr style={filaSub}>
+            <td colSpan={4} className="px-3 py-1.5">Aplicado al generador</td>
           </tr>
-          <tr className="border-t border-slate-200 font-bold">
-            <td className="num px-3 py-2 text-xs text-slate-400">→</td>
-            <td className="px-3 py-2">Acero de {codigo}</td>
-            <td className="num px-3 py-2 text-xs font-normal text-slate-500">{resultado.generador.formula}</td>
-            <td className="num whitespace-nowrap px-3 py-2 text-right">{fmt(resultado.generador.kg)} kg</td>
+          <tr style={{ ...lineaFila, fontWeight: 700, background: 'rgba(29,158,117,0.14)' }}>
+            <td className="num px-3 py-2.5 text-xs text-cc-tenue">→</td>
+            <td className="px-3 py-2.5">Acero de {codigo}</td>
+            <td className="num px-3 py-2.5 text-xs font-normal text-cc-suave">{resultado.generador.formula}</td>
+            <td className="num whitespace-nowrap px-3 py-2.5 text-right" style={{ color: '#3ddba6' }}>{fmt(resultado.generador.kg)} kg</td>
           </tr>
         </tbody>
       </table>
-    </div>
+    </Tarjeta>
   )
 }
 
 function Despiece({ despiece, calc, desperdicio }) {
   return (
-    <div className="rounded-lg border border-slate-300 bg-white">
-      <div className="border-b border-slate-200 px-3 py-2">
-        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Comparativo informativo: despiece real por tramos</h3>
-        <p className="text-xs text-slate-500">
+    <Tarjeta>
+      <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--cc-borde)' }}>
+        <Seccion>Comparativo informativo: despiece real por tramos</Seccion>
+        <p className="mt-1 text-xs text-cc-suave">
           Cada tramo armado por separado, ganchos solo en los extremos. No incluye traslapes ni anclajes en esquinas. No modifica la cantidad del generador.
         </p>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[480px] text-sm">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-wider text-slate-500">
+            <tr className="text-left" style={encabezadoTabla}>
               <th className="px-3 py-2">Tramo</th>
               <th className="px-3 py-2 text-right">L (m)</th>
               <th className="px-3 py-2 text-right">Varillas cortas</th>
@@ -414,7 +436,7 @@ function Despiece({ despiece, calc, desperdicio }) {
           </thead>
           <tbody>
             {despiece.filas.map((t, i) => (
-              <tr key={i} className="border-t border-slate-200">
+              <tr key={i} style={lineaFila}>
                 <td className="num px-3 py-1.5">{i + 1}</td>
                 <td className="num px-3 py-1.5 text-right">{fmt(t.L)}</td>
                 <td className="num px-3 py-1.5 text-right">{t.nT}</td>
@@ -422,7 +444,7 @@ function Despiece({ despiece, calc, desperdicio }) {
                 <td className="num px-3 py-1.5 text-right">{fmt(t.kg)}</td>
               </tr>
             ))}
-            <tr className="border-t-2 border-slate-400 font-semibold">
+            <tr style={{ borderTop: '2px solid var(--cc-borde)', fontWeight: 600 }}>
               <td className="px-3 py-1.5">Despiece real</td>
               <td className="num px-3 py-1.5 text-right">{fmt(despiece.ml)}</td>
               <td colSpan={2}></td>
@@ -432,7 +454,7 @@ function Despiece({ despiece, calc, desperdicio }) {
               <td className="px-3 py-1.5" colSpan={4}>Análisis por metro ({fmt(despiece.ml)} ml × {fmt(calc.kgMl)} kg/ml)</td>
               <td className="num px-3 py-1.5 text-right">{fmt(despiece.kgPorMetro)}</td>
             </tr>
-            <tr className="text-st-par">
+            <tr style={{ color: '#f0b866' }}>
               <td className="px-3 py-1.5" colSpan={4}>Diferencia (lo que cubre el método por metro además del {fmt(desperdicio)} % de desperdicio)</td>
               <td className="num px-3 py-1.5 text-right">
                 {fmt(despiece.diferencia)} · {despiece.kgReal > 0 ? fmt(r2((despiece.diferencia / despiece.kgReal) * 100)) : '—'} %
@@ -441,6 +463,6 @@ function Despiece({ despiece, calc, desperdicio }) {
           </tbody>
         </table>
       </div>
-    </div>
+    </Tarjeta>
   )
 }

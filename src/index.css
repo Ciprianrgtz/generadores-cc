@@ -1,21 +1,263 @@
 @import "tailwindcss";
 
-@theme {
-  --font-sans: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
-  --color-acento: #1e5a86;
-  /* semáforo de elementos */
-  --color-st-sin: #9aa3aa;
-  --color-st-par: #d3921a;
-  --color-st-ver: #3b78c2;
-  --color-st-ok: #2b8753;
-  --color-st-err: #c63f2c;
+/* Colores del sistema. Las pantallas los usan por variable; aquí se cambia el
+   aspecto de todo. Sin la clase `cc-oscuro` en <html> (portal del cliente,
+   cámara, páginas de impresión) valen los claros de siempre. La clase la pone
+   main.jsx y las pantallas claras la quitan con useTemaClaro (lib/tema.js). */
+:root {
+  --cc-fondo: #ffffff;
+  --cc-superficie: #eff2f9;
+  --cc-sombra: #c8cfd8;
+  --cc-luz: #ffffff;
+  --cc-texto: #2d3748;
+  --cc-suave: #718096;
+  --cc-tenue: #a0aec0;
+  --cc-borde: rgba(0, 0, 0, 0.08);
+  --cc-acento: #1d9e75;
+}
+
+:root.cc-oscuro {
+  color-scheme: dark;
+  --cc-fondo: #07090a;
+  --cc-superficie: rgba(255, 255, 255, 0.05);
+  --cc-sombra: rgba(0, 0, 0, 0.55);
+  --cc-luz: rgba(255, 255, 255, 0.06);
+  --cc-texto: #e8eeeb;
+  --cc-suave: #97a5a0;
+  --cc-tenue: #6d7b76;
+  --cc-borde: rgba(255, 255, 255, 0.09);
+}
+
+/* Al imprimir, todo vuelve a los colores claros: el papel no lleva tema oscuro. */
+@media print {
+  :root.cc-oscuro {
+    color-scheme: light;
+    --cc-fondo: #ffffff;
+    --cc-superficie: #eff2f9;
+    --cc-sombra: #c8cfd8;
+    --cc-luz: #ffffff;
+    --cc-texto: #2d3748;
+    --cc-suave: #718096;
+    --cc-tenue: #a0aec0;
+    --cc-borde: rgba(0, 0, 0, 0.08);
+  }
+  html, body, #root { background: #fff !important; color: #000 !important; }
+  body::before { display: none !important; }
+
+  /* Lo que solo sirve en pantalla (ej. la captura de viáticos de Melamina) no sale en papel. */
+  .no-print { display: none !important; }
+
+  /* Los tonos que se aclararon para fondo oscuro regresan a sus versiones firmes en papel. */
+  .cc-oscuro [style^='color: rgb(52, 211, 153)'], .cc-oscuro [style*='; color: rgb(52, 211, 153)'] { color: #0f6e56 !important; }
+  .cc-oscuro [style^='color: rgb(229, 72, 77)'], .cc-oscuro [style*='; color: rgb(229, 72, 77)'],
+  .cc-oscuro [style^='color: rgb(248, 113, 113)'], .cc-oscuro [style*='; color: rgb(248, 113, 113)'] { color: #c53030 !important; }
+  .cc-oscuro [style^='color: rgb(224, 176, 76)'], .cc-oscuro [style*='; color: rgb(224, 176, 76)'] { color: #b7791f !important; }
+  .cc-oscuro [style^='color: rgb(240, 184, 102)'], .cc-oscuro [style*='; color: rgb(240, 184, 102)'] { color: #854f0b !important; }
+}
+
+/* ===== Tema oscuro con cristal líquido (solo en pantalla) ===== */
+@media screen {
+  html.cc-oscuro {
+    background: var(--cc-fondo);
+  }
+
+  .cc-oscuro,
+  .cc-oscuro body,
+  .cc-oscuro #root {
+    min-height: 100%;
+    color: var(--cc-texto);
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  .cc-oscuro body,
+  .cc-oscuro #root {
+    background: transparent;
+  }
+
+  /* Manchas de luz de fondo, fijas a la ventana: dan algo que el cristal difumina. */
+  .cc-oscuro body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(38% 34% at 12% 8%, rgba(29, 158, 117, 0.42), transparent 70%),
+      radial-gradient(34% 30% at 88% 14%, rgba(56, 189, 248, 0.20), transparent 70%),
+      radial-gradient(40% 36% at 70% 96%, rgba(29, 158, 117, 0.26), transparent 72%),
+      radial-gradient(30% 28% at 6% 88%, rgba(129, 140, 248, 0.16), transparent 70%);
+  }
+
+  .cc-oscuro ::placeholder {
+    color: var(--cc-tenue);
+    opacity: 1;
+  }
+
+  .cc-oscuro input,
+  .cc-oscuro select,
+  .cc-oscuro textarea {
+    color: var(--cc-texto);
+  }
+
+  .cc-oscuro input:focus-visible,
+  .cc-oscuro select:focus-visible,
+  .cc-oscuro textarea:focus-visible,
+  .cc-oscuro button:focus-visible,
+  .cc-oscuro a:focus-visible,
+  .cc-oscuro [role='tab']:focus-visible {
+    outline: 2px solid rgba(29, 158, 117, 0.75);
+    outline-offset: 2px;
+  }
+
+  .cc-oscuro option {
+    background: #101413;
+    color: var(--cc-texto);
+  }
+
+  .cc-oscuro * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+  }
+
+  /* Clases de Tailwind pensadas para fondo claro. */
+  .cc-oscuro .bg-white { background-color: var(--cc-superficie) !important; }
+  .cc-oscuro .bg-green-50 { background-color: rgba(29, 158, 117, 0.14) !important; }
+  .cc-oscuro .bg-blue-100 { background-color: rgba(49, 130, 206, 0.2) !important; }
+  .cc-oscuro .text-gray-800, .cc-oscuro .text-gray-700 { color: var(--cc-texto) !important; }
+  .cc-oscuro .text-gray-600, .cc-oscuro .text-gray-500 { color: var(--cc-suave) !important; }
+  .cc-oscuro .text-gray-400, .cc-oscuro .text-gray-300 { color: var(--cc-tenue) !important; }
+  .cc-oscuro .text-blue-700 { color: #63b3ed !important; }
+  .cc-oscuro .text-red-700, .cc-oscuro .text-red-500, .cc-oscuro .text-red-400 { color: #f87171 !important; }
+  .cc-oscuro .text-green-700 { color: #34d399 !important; }
+  .cc-oscuro .border-gray-300, .cc-oscuro .border-gray-200, .cc-oscuro .border-gray-100 { border-color: var(--cc-borde) !important; }
+
+  /* El logo es negro sobre blanco: en el tema oscuro se invierte. */
+  .cc-oscuro .cc-logo {
+    filter: invert(1);
+    mix-blend-mode: screen;
+  }
+
+  /* Tarjetas y botones: vidrio con desenfoque, brillo en el borde superior. */
+  .cc-oscuro [style*='--cc-sombra']:not([style*='inset']) {
+    backdrop-filter: blur(22px) saturate(170%);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    background-image: linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.04));
+    box-shadow:
+      0 10px 34px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05) !important;
+    outline: 1px solid rgba(255, 255, 255, 0.10) !important;
+    outline-offset: -1px;
+  }
+
+  /* Campos: hundidos y más oscuros que el vidrio. */
+  .cc-oscuro [style*='inset'][style*='--cc-sombra'] {
+    background: rgba(0, 0, 0, 0.28) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow:
+      inset 0 2px 5px rgba(0, 0, 0, 0.55),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
+    outline: 1px solid rgba(255, 255, 255, 0.09) !important;
+    outline-offset: -1px;
+  }
+  .cc-oscuro input:focus-visible[style*='--cc-sombra'],
+  .cc-oscuro select:focus-visible[style*='--cc-sombra'],
+  .cc-oscuro textarea:focus-visible[style*='--cc-sombra'] {
+    outline: 1px solid rgba(29, 158, 117, 0.8) !important;
+  }
+
+  /* Menú lateral. */
+  .cc-oscuro aside {
+    background: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(26px) saturate(170%) !important;
+    -webkit-backdrop-filter: blur(26px) saturate(170%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.05);
+    transition: width 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* ===== Movimiento sutil ===== */
+  @keyframes cc-entrada {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .cc-oscuro .cc-entrada > * {
+    animation: cc-entrada 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .cc-oscuro .cc-entrada > *:nth-child(2) { animation-delay: 0.05s; }
+  .cc-oscuro .cc-entrada > *:nth-child(3) { animation-delay: 0.10s; }
+  .cc-oscuro .cc-entrada > *:nth-child(4) { animation-delay: 0.15s; }
+  .cc-oscuro .cc-entrada > *:nth-child(5) { animation-delay: 0.20s; }
+  .cc-oscuro .cc-entrada > *:nth-child(n+6) { animation-delay: 0.25s; }
+
+  .cc-oscuro button,
+  .cc-oscuro a,
+  .cc-oscuro [role='tab'],
+  .cc-oscuro [style*='cursor: pointer'] {
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), filter 0.28s ease, background-color 0.28s ease, color 0.2s ease;
+  }
+
+  .cc-oscuro button:not(:disabled):hover,
+  .cc-oscuro a:hover,
+  .cc-oscuro [role='tab']:hover,
+  .cc-oscuro [style*='cursor: pointer']:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.12);
+  }
+
+  .cc-oscuro button:not(:disabled):active,
+  .cc-oscuro a:active,
+  .cc-oscuro [role='tab']:active,
+  .cc-oscuro [style*='cursor: pointer']:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 0.08s;
+  }
+
+  /* Reflejo de luz que sigue al cursor (la posición la pone movimiento.js). */
+  .cc-oscuro [style*='--cc-sombra'][style*='cursor: pointer']:not([style*='inset']):hover,
+  .cc-oscuro button[style*='--cc-sombra']:not([style*='inset']):hover,
+  .cc-oscuro a[style*='--cc-sombra']:not([style*='inset']):hover {
+    background-image:
+      radial-gradient(160px circle at var(--mx, 50%) var(--my, 0%), rgba(255, 255, 255, 0.16), transparent 65%),
+      linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02) 45%, rgba(255, 255, 255, 0.04));
+  }
+
+  /* Filas de tablas: sin elevación, para que no "salten". */
+  .cc-oscuro tr:hover, .cc-oscuro td:hover, .cc-oscuro th:hover { transform: none !important; filter: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .cc-oscuro .cc-entrada > * { animation: none; }
+    .cc-oscuro button, .cc-oscuro a, .cc-oscuro [role='tab'], .cc-oscuro [style*='cursor: pointer'] { transition: none; }
+    .cc-oscuro button:not(:disabled):hover, .cc-oscuro a:hover, .cc-oscuro [role='tab']:hover, .cc-oscuro [style*='cursor: pointer']:hover { transform: none; }
+  }
+}
+
+/* =====================================================================
+   Específico de este proyecto (no forma parte del kit de estilo).
+   Todo lo de arriba es copia exacta de Concepto Cero: no editarlo aquí.
+   ===================================================================== */
+
+/* Los colores del tema, disponibles como clases de Tailwind (text-cc-suave,
+   border-cc-borde, fill-cc-texto…). Siguen a las variables, así que cambian
+   solas entre tema oscuro y claro. */
+@theme inline {
+  --color-cc-texto: var(--cc-texto);
+  --color-cc-suave: var(--cc-suave);
+  --color-cc-tenue: var(--cc-tenue);
+  --color-cc-borde: var(--cc-borde);
+  --color-cc-acento: var(--cc-acento);
+  --color-cc-superficie: var(--cc-superficie);
 }
 
 body {
-  @apply bg-slate-100 text-slate-900 font-sans;
+  background: var(--cc-fondo);
+  color: var(--cc-texto);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
 
+/* Cifras alineadas (kg, medidas, fórmulas) con la misma tipografía del sistema de obras. */
 .num {
-  @apply font-mono tabular-nums;
+  font-variant-numeric: tabular-nums;
 }
