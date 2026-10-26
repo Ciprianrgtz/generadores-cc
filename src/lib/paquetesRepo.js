@@ -126,7 +126,12 @@ export const eliminarPaquete = async (id) => ok(await supabase.from('paquetes').
 export async function paquete(id) {
   const cabecera = ok(await supabase.from('paquetes').select('id, nombre, estado, proyecto:proyectos(clave, nombre)').eq('id', id).single())
   const partidas = ok(await supabase.from('paquete_partidas').select('*').eq('paquete_id', id).order('orden'))
-  const conceptos = ok(await supabase.from('paquete_conceptos').select('*').eq('paquete_id', id).order('orden'))
+  const filas = ok(await supabase.from('paquete_conceptos').select('*, generador:generadores(cantidad, unidad)').eq('paquete_id', id).order('orden'))
+  // la cantidad del análisis guardado (o null si el concepto no se ha analizado)
+  const conceptos = filas.map(({ generador, ...c }) => {
+    const g = Array.isArray(generador) ? generador[0] : generador
+    return { ...c, cantidad: g?.cantidad != null ? Number(g.cantidad) : null }
+  })
   return { cabecera, partidas, conceptos }
 }
 

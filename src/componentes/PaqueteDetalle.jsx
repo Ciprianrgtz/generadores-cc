@@ -7,6 +7,7 @@ import * as repo from '../lib/paquetesRepo'
 import { Aviso, Boton, BotonIcono, Campo, Chip, Entrada, Seccion, Seleccion, AreaTexto, Tarjeta } from './ui'
 import { FormularioConcepto, FormularioEliminar, FormularioNombre, FormularioPartida } from './formularios'
 import { botones } from '../lib/ui'
+import { fmt, unidadTexto } from '../dominio/redondeo'
 
 const { mensajeError } = repo
 
@@ -99,6 +100,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, terreno, onEliminado
   const concepto = datos.conceptos.find((c) => c.id === sel)
   const partidaDe = (c) => datos.partidas.find((p) => p.id === c.paquete_partida_id)
   const listos = datos.conceptos.filter((c) => c.estado === 'listo').length
+  const conVolumen = datos.conceptos.filter((c) => c.cantidad > 0).length
   const ultimaPartida = Math.max(0, ...datos.partidas.map((p) => p.orden))
 
   return (
@@ -120,7 +122,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, terreno, onEliminado
         )}
         {datos.cabecera.estado === 'archivado' && <Chip color="gris">Archivado</Chip>}
         <span className="num text-xs text-cc-suave">{datos.cabecera.proyecto?.clave}</span>
-        <span className="num ml-auto text-sm text-cc-suave">{listos}/{datos.conceptos.length} conceptos listos</span>
+        <span className="num ml-auto text-sm text-cc-suave">{conVolumen}/{datos.conceptos.length} con volumen · {listos} listos</span>
       </div>
 
       {puedeEscribir && (
@@ -286,7 +288,14 @@ export default function PaqueteDetalle({ paqueteId, perfil, terreno, onEliminado
                         <span className="min-w-0 flex-1 text-sm leading-snug">
                           <span className="line-clamp-2">{c.descripcion}</span>
                         </span>
-                        <span className="num w-10 shrink-0 pt-0.5 text-right text-xs text-cc-suave">{c.unidad}</span>
+                        <span
+                          className="num w-24 shrink-0 pt-0.5 text-right text-sm"
+                          style={{ color: c.cantidad > 0 ? 'var(--cc-texto)' : 'var(--cc-tenue)', fontWeight: c.cantidad > 0 ? 600 : 400 }}
+                          title={c.cantidad > 0 ? 'Cantidad del análisis guardado' : 'Sin analizar'}
+                        >
+                          {fmt(c.cantidad ?? 0)}
+                        </span>
+                        <span className="num w-10 shrink-0 pt-0.5 text-xs text-cc-suave">{unidadTexto(c.unidad)}</span>
                         <Chip color={ESTADOS[c.estado].color} style={{ marginTop: 2 }}>{ESTADOS[c.estado].nombre}</Chip>
                       </li>
                     )
