@@ -18,13 +18,16 @@ const { mensajeError } = repo
  */
 export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZapata }) {
   const [proy, setProy] = useState(null)
+  const [generadores, setGeneradores] = useState([]) // análisis guardados, para el modelo 3D
   const [error, setError] = useState(null)
   const [analisis, setAnalisis] = useState(null) // concepto que se está analizando
   const puedeEscribir = perfil && perfil.rol !== 'lectura'
 
   const cargar = useCallback(async () => {
     try {
-      setProy(await repo.proyecto(proyectoId))
+      const p = await repo.proyecto(proyectoId)
+      setProy(p)
+      setGeneradores(p.paquete ? await repo.generadoresDelPaquete(p.paquete.id) : [])
       setError(null)
     } catch (e) {
       setError(mensajeError(e))
@@ -55,7 +58,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
         <NuevoPaquete proyecto={proy} puedeEscribir={puedeEscribir} onCreado={cargar} />
       ) : (
         <>
-          <Visor3D terreno={proy.terreno} />
+          <Visor3D terreno={proy.terreno} generadores={generadores} />
           {analisis?.analisis_tipo === 'excavacion' ? (
             <GeneradorExcavacion
               concepto={analisis}

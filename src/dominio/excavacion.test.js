@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EXCAVACION_BIELVA } from './bielva/excavacion.js'
+import { areaPoligono } from './terreno.js'
 import { analizarExcavacion, calcularRenglon, CRITERIOS_EXCAVACION as C } from './excavacion.js'
 
 describe('Excavación por elementos', () => {
@@ -68,6 +69,14 @@ describe('Excavación por elementos', () => {
     expect(r.volElementos).toBeCloseTo(21.66 * 0.9 * 0.85 + 8.62 * 0.45 * 0.3, 10)
     expect(r.cantidad).toBe(30.88)
     expect(Math.abs(r.cantidad - EXCAVACION_BIELVA.referencia)).toBeLessThan(0.3) // Neodata 31.13
+  })
+
+  it('Bielva: la huella de cada pieza cuadra con lo que se cobra', () => {
+    const area = (pols) => pols.reduce((s, [c, ...h]) => s + areaPoligono(c).area - h.reduce((t, x) => t + areaPoligono(x).area, 0), 0)
+    for (const f of EXCAVACION_BIELVA.renglones) expect(area(f.huella)).toBeCloseTo(f.largo * (f.ancho + f.lados * 0.1), 2)
+    for (const s of EXCAVACION_BIELVA.superficies.filter((x) => x.espesor === 0.1)) expect(area(s.huella)).toBeCloseTo(s.area, 1)
+    // las bandas se dibujan con su contorno completo; lo que se cobra es neto de zapatas y TL-1
+    for (const s of EXCAVACION_BIELVA.superficies.filter((x) => x.espesor === 0.25)) expect(area(s.huella)).toBeGreaterThanOrEqual(s.area - 0.01)
   })
 
   it('el firme se excava por área × espesor, sin sobreancho ni plantilla', () => {
