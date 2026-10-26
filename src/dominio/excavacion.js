@@ -14,6 +14,10 @@ import { dato, fmt, r2 } from './redondeo.js'
  *     se excava (en obra no se sostiene); su volumen cuenta como excavación y como relleno.
  *
  *   Volumen = largo × (ancho + 2·sobreancho) × (profundidad + plantilla) × piezas
+ *
+ * Los elementos de superficie (el firme de concreto de 10 cm que va en toda el área
+ * interior de la casa) se excavan por área, sin sobreancho ni plantilla:
+ *   Volumen = área × espesor
  */
 export const CRITERIOS_EXCAVACION = {
   sobreancho: 0.1, // m por lado
@@ -46,13 +50,22 @@ export function calcularSeparacion(s, c) {
   return { ...s, entra, altoCepa: alto, volumen, formula }
 }
 
-export function analizarExcavacion({ renglones = [], separaciones = [], criterios = {} }) {
+export function calcularSuperficie(s) {
+  const volumen = n(s.area) * n(s.espesor)
+  const valido = s.area > 0 && s.espesor > 0
+  const formula = `${dato(n(s.area))} m² × ${dato(n(s.espesor))} = ${fmt(volumen)} m³`
+  return { ...s, volumen, valido, formula }
+}
+
+export function analizarExcavacion({ renglones = [], separaciones = [], superficies = [], criterios = {} }) {
   const c = { ...CRITERIOS_EXCAVACION, ...criterios }
   const filas = renglones.map((r) => calcularRenglon(r, c))
   const franjas = separaciones.map((s) => calcularSeparacion(s, c))
   const volElementos = filas.reduce((s, f) => s + (f.valido ? f.volumen : 0), 0)
   const volFranjas = franjas.reduce((s, f) => s + f.volumen, 0)
-  const total = volElementos + volFranjas
+  const areas = superficies.map(calcularSuperficie)
+  const volSuperficies = areas.reduce((s, f) => s + (f.valido ? f.volumen : 0), 0)
+  const total = volElementos + volSuperficies + volFranjas
 
   // resumen por tipo de elemento (ZC, TL, CT…)
   const porElemento = {}
@@ -65,13 +78,16 @@ export function analizarExcavacion({ renglones = [], separaciones = [], criterio
   }
 
   const partes = [`elementos ${fmt(volElementos)}`]
+  if (volSuperficies > 0) partes.push(`superficies ${fmt(volSuperficies)}`)
   if (volFranjas > 0) partes.push(`franjas menores a ${dato(c.separacionMinima)} m ${fmt(volFranjas)}`)
   return {
     criterios: c,
     filas,
     franjas,
+    areas,
     porElemento,
     volElementos,
+    volSuperficies,
     volFranjas,
     rellenoFranjas: volFranjas,
     total,

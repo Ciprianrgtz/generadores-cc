@@ -46,4 +46,15 @@ describe('Excavación por elementos', () => {
     expect(r.filas[0].valido).toBe(false)
     expect(r.total).toBe(0)
   })
+
+  it('el firme se excava por área × espesor, sin sobreancho ni plantilla', () => {
+    const r = analizarExcavacion({
+      renglones: [{ elemento: 'ZC', largo: 1, ancho: 0.8, profundidad: 0.8 }],
+      superficies: [{ descripcion: 'Firme interior', area: 100, espesor: 0.1 }],
+    })
+    expect(r.areas[0].formula).toBe('100.00 m² × 0.10 = 10.00 m³')
+    expect(r.volSuperficies).toBeCloseTo(10, 10)
+    expect(r.total).toBeCloseTo(0.85 + 10, 10)
+    expect(r.formula).toBe('Excavación = elementos 0.85 + superficies 10.00 = 10.85 m³')
+  })
 })

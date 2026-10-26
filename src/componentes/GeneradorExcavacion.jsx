@@ -14,6 +14,8 @@ const texto = (n) => (Number.isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : '
 
 const RENGLON_VACIO = { elemento: '', eje: '', entre: '', largo: '', ancho: '', profundidad: '', piezas: '1' }
 const FRANJA_VACIA = { descripcion: '', largo: '', separacion: '', profundidad: '' }
+const SUPERFICIE_VACIA = { descripcion: '', area: '', espesor: '' }
+const FIRME = { descripcion: 'Firme de concreto · área interior de la casa', area: '', espesor: '0.1' }
 
 // Tramos de zapata corrida de Casa Bielva medidos en el DXF estructural (capa PROYECCIÓN DE ZAPATA).
 // Desplante a −0.80 desde el terreno natural (NDZC −0.80). Ancho total de la sección: 0.80 (la zapata).
@@ -37,6 +39,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
   const [criterios, setCriterios] = useState(aTexto(CRITERIOS_EXCAVACION))
   const [renglones, setRenglones] = useState([{ ...RENGLON_VACIO }])
   const [franjas, setFranjas] = useState([])
+  const [superficies, setSuperficies] = useState([{ ...FIRME }])
   const [referencia, setReferencia] = useState('')
   const [guardado, setGuardado] = useState(null)
   const [mensaje, setMensaje] = useState(null)
@@ -54,6 +57,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
         setCriterios(aTexto({ ...CRITERIOS_EXCAVACION, ...d.criterios }))
         setRenglones(d.renglones.length ? d.renglones.map(aTexto) : [{ ...RENGLON_VACIO }])
         setFranjas((d.separaciones ?? []).map(aTexto))
+        if (d.superficies) setSuperficies(d.superficies.map(aTexto))
         setReferencia(d.referencia != null ? texto(d.referencia) : '')
       })
       .catch((e) => vivo && setMensaje({ tipo: 'error', texto: repo.mensajeError(e) }))
@@ -67,18 +71,20 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
       criterios: { sobreancho: num(criterios.sobreancho) || 0, plantilla: num(criterios.plantilla) || 0, separacionMinima: num(criterios.separacionMinima) || 0 },
       renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1 })),
       separaciones: franjas.map((s) => ({ descripcion: s.descripcion.trim(), largo: num(s.largo), separacion: num(s.separacion), profundidad: num(s.profundidad) })),
+      superficies: superficies.map((s) => ({ descripcion: s.descripcion.trim(), area: num(s.area), espesor: num(s.espesor) })),
     }),
-    [criterios, renglones, franjas],
+    [criterios, renglones, franjas, superficies],
   )
   const r = useMemo(() => analizarExcavacion(entrada), [entrada])
   const ref = num(referencia)
   const cuadra = ref > 0 && Math.abs(r.cantidad - ref) < 0.005
-  const hayValidos = r.filas.some((f) => f.valido)
+  const hayValidos = r.filas.some((f) => f.valido) || r.areas.some((f) => f.valido)
   const incompletos = r.filas.filter((f) => !f.valido && (f.largo || f.ancho || f.profundidad)).length
 
   const cambia = (set) => (i, k, v) => set((xs) => xs.map((x, j) => (j === i ? { ...x, [k]: v } : x)))
   const cambiaRenglon = cambia(setRenglones)
   const cambiaFranja = cambia(setFranjas)
+  const cambiaSuperficie = cambia(setSuperficies)
 
   async function guardar() {
     setOcupado(true)
@@ -89,6 +95,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
         criterios: entrada.criterios,
         renglones: entrada.renglones.filter((x) => x.largo || x.ancho || x.profundidad || x.elemento).map(limpio),
         separaciones: entrada.separaciones.filter((x) => x.largo || x.separacion).map(limpio),
+        superficies: entrada.superficies.filter((x) => x.area || x.espesor).map(limpio),
         relleno_franjas: Math.round(r.rellenoFranjas * 10000) / 10000,
         referencia: ref > 0 ? ref : null,
       }
@@ -223,6 +230,57 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
           <Tarjeta className="overflow-hidden">
             <div className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--cc-borde)' }}>
               <div>
+                <Seccion>Superficies</Seccion>
+                <p className="text-xs text-cc-tenue">Firmes y otros elementos que cubren un área: área × espesor, sin sobreancho ni plantilla.</p>
+              </div>
+              {puedeEscribir && (
+                <Boton chico className="ml-auto" onClick={() => setSuperficies((xs) => [...xs, { ...SUPERFICIE_VACIA }])}>
+                  + Superficie
+                </Boton>
+              )}
+            </div>
+            {superficies.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-sm">
+                  <thead>
+                    <tr className="text-left text-cc-tenue" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.6px' }}>
+                      <th className={celda}>Descripción</th>
+                      <th className={celda}>Área (m²)</th>
+                      <th className={celda}>Espesor</th>
+                      <th className={celda}>Resultado</th>
+                      <th className={celda}></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {superficies.map((x, i) => {
+                      const f = r.areas[i]
+                      return (
+                        <tr key={i} style={{ borderTop: '1px solid var(--cc-borde)' }}>
+                          <td className={celda}>{inp(x.descripcion, (v) => cambiaSuperficie(i, 'descripcion', v), { placeholder: 'Firme de cochera', style: { padding: '6px 8px', fontSize: 13, minWidth: 240 } })}</td>
+                          <td className={celda}>{numero(x.area, (v) => cambiaSuperficie(i, 'area', v), 90)}</td>
+                          <td className={celda}>{numero(x.espesor, (v) => cambiaSuperficie(i, 'espesor', v))}</td>
+                          <td className={`${celda} num text-xs`} style={{ color: f.valido ? 'var(--cc-texto)' : 'var(--cc-tenue)' }}>{f.valido ? f.formula : 'Falta el área o el espesor'}</td>
+                          <td className={celda}>
+                            {puedeEscribir && (
+                              <BotonIcono peligro title="Quitar superficie" onClick={() => setSuperficies((xs) => xs.filter((_, j) => j !== i))}>
+                                ×
+                              </BotonIcono>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="px-4 py-3 text-xs text-cc-suave">Sin superficies.</p>
+            )}
+          </Tarjeta>
+
+          <Tarjeta className="overflow-hidden">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid var(--cc-borde)' }}>
+              <div>
                 <Seccion>Franjas de tierra entre cepas</Seccion>
                 <p className="text-xs text-cc-tenue">Si quedan menos de {fmt(entrada.criterios.separacionMinima)} m de tierra entre dos cepas, la franja se excava y se rellena.</p>
               </div>
@@ -278,7 +336,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
               <Seccion>Cálculo</Seccion>
             </div>
             <div className="grid gap-3 px-4 py-4 text-sm">
-              {Object.keys(r.porElemento).length > 0 && (
+              {(Object.keys(r.porElemento).length > 0 || r.volSuperficies > 0) && (
                 <table className="num w-full text-sm">
                   <thead>
                     <tr className="text-left text-cc-tenue" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.6px' }}>
@@ -293,6 +351,13 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                         <td className="py-1">{k}</td>
                         <td className="py-1 text-right">{fmt(v.ml)}</td>
                         <td className="py-1 text-right">{fmt(v.volumen)}</td>
+                      </tr>
+                    ))}
+                    {r.areas.filter((f) => f.valido).map((f, i) => (
+                      <tr key={`s${i}`} style={{ borderTop: '1px solid var(--cc-borde)' }}>
+                        <td className="py-1">{f.descripcion || 'Superficie'}</td>
+                        <td className="py-1 text-right text-cc-tenue">{fmt(f.area)} m²</td>
+                        <td className="py-1 text-right">{fmt(f.volumen)}</td>
                       </tr>
                     ))}
                     {r.volFranjas > 0 && (

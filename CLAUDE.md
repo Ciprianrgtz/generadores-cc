@@ -360,6 +360,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 - **Sobreancho de 10 cm por lado** para maniobrar el armado, el colado y los amarres.
 - Si entre dos cepas quedan **menos de 35 cm de tierra**, esa franja también se excava (en obra no se sostiene); su volumen cuenta como excavación **y como relleno**.
 - `Volumen = largo × (ancho total + 2 × 0.10) × (desplante + 0.05) × piezas`. Los tres valores son criterios editables.
+- El **firme de concreto de 10 cm** va en toda el área interior de la casa y también se excava, por superficie: `Volumen = área × espesor`, sin sobreancho ni plantilla (sección «Superficies» del generador).
 - Bielva: las zapatas corridas (22.56 ml, ancho 0.80, desplante 0.80) dan 19.18 m³; Neodata trae 31.13 m³ → faltan por capturar contratrabes, TL-1 y lo demás que toca el suelo.
 
 Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.

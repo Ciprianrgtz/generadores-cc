@@ -44,6 +44,7 @@ export const METODOS = {
       'Ancho de la cepa = ancho total + 2 × sobreancho (10 cm por lado, para maniobrar el armado, el colado y los amarres).',
       'Profundidad de la cepa = desplante + plantilla de concreto (5 cm).',
       'Volumen del renglón = largo × ancho de la cepa × profundidad de la cepa × piezas. La excavación es la suma de todos los renglones.',
+      'El firme de concreto (10 cm) que va en toda el área interior de la casa se excava por superficie: área × espesor, sin sobreancho ni plantilla.',
       'Si entre dos cepas queda menos de 35 cm de tierra, la franja también se excava: su volumen se suma a la excavación y al relleno.',
       'Se compara con la cantidad que trae Neodata.',
     ],
@@ -58,7 +59,8 @@ export function origenExcavacion(datos) {
   if (!datos?.renglones) return null
   const tipos = [...new Set(datos.renglones.map((r) => (r.elemento || '').trim()).filter(Boolean))]
   const f = datos.separaciones?.length ?? 0
-  return `${datos.renglones.length} renglones (${tipos.join(', ') || 'sin tipo'})${f ? ` · ${f} franjas revisadas` : ''}`
+  const s = datos.superficies?.length ?? 0
+  return `${datos.renglones.length} renglones (${tipos.join(', ') || 'sin tipo'})${s ? ` · ${s} superficies` : ''}${f ? ` · ${f} franjas revisadas` : ''}`
 }
 
 /** Cómo se dio el terreno en un análisis guardado, escrito en una línea. */
