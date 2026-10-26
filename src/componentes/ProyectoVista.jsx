@@ -4,6 +4,7 @@ import { leerCatalogoNeodata } from '../dominio/importarNeodata'
 import * as repo from '../lib/proyectosRepo'
 import * as paquetes from '../lib/paquetesRepo'
 import { botones } from '../lib/ui'
+import GeneradorExcavacion from './GeneradorExcavacion'
 import GeneradorTerreno from './GeneradorTerreno'
 import PaqueteDetalle from './PaqueteDetalle'
 import Visor3D from './Visor3D'
@@ -55,7 +56,15 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
       ) : (
         <>
           <Visor3D terreno={proy.terreno} />
-          {analisis ? (
+          {analisis?.analisis_tipo === 'excavacion' ? (
+            <GeneradorExcavacion
+              concepto={analisis}
+              proyecto={proy}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={() => setAnalisis(null)}
+            />
+          ) : analisis ? (
             <GeneradorTerreno
               concepto={analisis}
               proyecto={proy}

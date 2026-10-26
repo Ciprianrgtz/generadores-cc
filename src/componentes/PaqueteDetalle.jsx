@@ -322,10 +322,18 @@ export default function PaqueteDetalle({ paqueteId, perfil, terreno, onEliminado
 const ANALISIS = {
   terreno: { nombre: 'Superficie del terreno', detalle: 'Limpia y despalme, trazo… lo que se mide por el terreno' },
   zapata_corrida: { nombre: 'Zapata corrida (ficha de acero)', detalle: 'Acero de la parrilla por metro lineal' },
+  excavacion: { nombre: 'Excavación por elementos', detalle: 'Cepas de zapatas, trabes y todo lo que toca el suelo' },
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
-const sugerido = (c) => (/limpia y despalme|trazo y nivelaci[oó]n/i.test(c.descripcion) ? 'terreno' : /zapata corrida/i.test(c.descripcion) ? 'zapata_corrida' : null)
+const sugerido = (c) =>
+  /limpia y despalme|trazo y nivelaci[oó]n/i.test(c.descripcion)
+    ? 'terreno'
+    : /^excavaci[oó]n/i.test(c.descripcion)
+      ? 'excavacion'
+      : /zapata corrida/i.test(c.descripcion)
+        ? 'zapata_corrida'
+        : null
 
 function PanelConcepto({ concepto, partida, puedeEscribir, terreno, hacer, onQuitado, onAbrirAnalisis }) {
   const [v, setV] = useState({ clave: concepto.clave, descripcion: concepto.descripcion, unidad: concepto.unidad })

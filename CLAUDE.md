@@ -350,10 +350,21 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 |---|---|---|
 | `terreno` — Superficie del terreno | Limpia y despalme, trazo y nivelación | Rectángulo, vértices o polilínea cerrada del DXF en la capa «terreno» (fórmula de la lazada). El terreno se captura una vez en el proyecto (`proyectos.terreno`), lo reusan todos los conceptos y se dibuja en el 3D. |
 | `zapata_corrida` — Acero de la parrilla | Acero de ZC-01, ZC-02… | Ficha por 1.00 ml (sección 13, método CIM05B), con versiones y flujo Borrador → Revisado → Aprobado y esquema interactivo en planta e isométrico. |
+| `excavacion` — Excavación por elementos | Excavación de cepas (CIM001) | Renglones por tramo de cada elemento que toca el suelo (eje, entre, largo, ancho total, desplante, piezas). Reglas abajo. |
+
+### Reglas de excavación (explicadas por Ciprian, 26-oct-2026)
+
+- Se excava **todo elemento en contacto con el suelo**: zapatas, trabes de liga, contratrabes, plantillas…; se suma el volumen de cada uno.
+- **No se sigue la forma del elemento en corte**: se excava su **ancho total** (el más ancho de la sección) hasta su **desplante**.
+- A la profundidad se suma la **plantilla de 5 cm** que va debajo.
+- **Sobreancho de 10 cm por lado** para maniobrar el armado, el colado y los amarres.
+- Si entre dos cepas quedan **menos de 35 cm de tierra**, esa franja también se excava (en obra no se sostiene); su volumen cuenta como excavación **y como relleno**.
+- `Volumen = largo × (ancho total + 2 × 0.10) × (desplante + 0.05) × piezas`. Los tres valores son criterios editables.
+- Bielva: las zapatas corridas (22.56 ml, ancho 0.80, desplante 0.80) dan 19.18 m³; Neodata trae 31.13 m³ → faltan por capturar contratrabes, TL-1 y lo demás que toca el suelo.
 
 Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.
 
-### Base de datos (migraciones 0001–0004, todas aplicadas)
+### Base de datos (migraciones 0001–0005)
 
 | Migración | Contenido |
 |---|---|
@@ -361,6 +372,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 | 0002 | Perfiles con rol (lectura < captura < revisión < aprobación; el primer usuario es aprobación), proyectos, flujo de fichas validado por trigger (nadie se aprueba a sí mismo; aprobadas congeladas), Casa Bielva con ZC-01 y ZC-02. |
 | 0003 | Orden de conceptos en el catálogo; `paquetes`, `paquete_partidas`, `paquete_conceptos`; funciones `crear_paquete`, `mover_paquete_concepto`, `mover_paquete_partida`. |
 | 0004 | `proyectos.terreno`, `paquete_conceptos.analisis_tipo`, tabla `generadores` (datos capturados, cantidad, unidad, fórmula); un paquete por proyecto. |
+| 0005 | Permite el método `excavacion` en `analisis_tipo`. |
 
 - Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
 - Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).
@@ -374,7 +386,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 
 ### Siguientes pasos
 
-1. Métodos para los demás conceptos de cimentación de Bielva, en orden de obra: trazo y nivelación (ya usa el terreno), excavación, afine, plantilla, cimbra de ZC, concreto, contratrabes, dalas, castillos…
+1. Métodos para los demás conceptos de cimentación de Bielva, en orden de obra: completar la excavación (contratrabes, TL-1…), afine, plantilla, membrana, cimbra de ZC, concreto, contratrabes, dalas, castillos… (trazo y nivelación ya usa el terreno).
 2. Inventario completo de elementos tipo de Bielva (CT-1, CT-2, TL-1, DD-1, K-1…) desde el estructural.
 3. Reportes de Neodata con tarjetas de PU y mano de obra (cuadrillas) para cargar matrices.
 

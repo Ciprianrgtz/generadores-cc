@@ -33,9 +33,33 @@ export const METODOS = {
     criterios: 'Criterios editables en la ficha: recubrimiento por lado, gancho por lado y desperdicio. La ficha tiene versiones y flujo Borrador → Revisado → Aprobado.',
     abrir: true,
   },
+  excavacion: {
+    id: 'excavacion',
+    nombre: 'Excavación por elementos',
+    aplica: 'Excavación de cepas: zapatas, trabes de liga, contratrabes, plantillas y todo elemento en contacto con el suelo.',
+    unidad: 'm³',
+    pasos: [
+      'Un renglón por cada tramo de elemento que toca el suelo, ubicado por eje y entre ejes: largo, ancho total y profundidad de desplante.',
+      'No se sigue la forma del elemento en corte: se excava su ancho total (el más ancho de la sección) hasta su desplante.',
+      'Ancho de la cepa = ancho total + 2 × sobreancho (10 cm por lado, para maniobrar el armado, el colado y los amarres).',
+      'Profundidad de la cepa = desplante + plantilla de concreto (5 cm).',
+      'Volumen del renglón = largo × ancho de la cepa × profundidad de la cepa × piezas. La excavación es la suma de todos los renglones.',
+      'Si entre dos cepas queda menos de 35 cm de tierra, la franja también se excava: su volumen se suma a la excavación y al relleno.',
+      'Se compara con la cantidad que trae Neodata.',
+    ],
+    criterios: 'Criterios editables en el análisis: sobreancho por lado (0.10 m), plantilla (0.05 m) y separación mínima de tierra entre cepas (0.35 m).',
+  },
 }
 
 export const LISTA_METODOS = Object.values(METODOS)
+
+/** Resumen en una línea de un análisis de excavación guardado. */
+export function origenExcavacion(datos) {
+  if (!datos?.renglones) return null
+  const tipos = [...new Set(datos.renglones.map((r) => (r.elemento || '').trim()).filter(Boolean))]
+  const f = datos.separaciones?.length ?? 0
+  return `${datos.renglones.length} renglones (${tipos.join(', ') || 'sin tipo'})${f ? ` · ${f} franjas revisadas` : ''}`
+}
 
 /** Cómo se dio el terreno en un análisis guardado, escrito en una línea. */
 export function origenTerreno(datos) {

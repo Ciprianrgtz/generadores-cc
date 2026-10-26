@@ -1,4 +1,4 @@
-import { METODOS, origenTerreno } from '../dominio/metodos'
+import { METODOS, origenExcavacion, origenTerreno } from '../dominio/metodos'
 import { fmt, unidadTexto } from '../dominio/redondeo'
 import { Seccion } from './ui'
 
@@ -31,6 +31,7 @@ export default function ComoSeGenera({ concepto, generador, terreno, compacto = 
         <div className="mt-2 rounded-lg px-3 py-2" style={{ background: 'rgba(0,0,0,0.22)' }}>
           <p className="num text-sm">{generador.formula}</p>
           {concepto.analisis_tipo === 'terreno' && <p className="mt-1 text-xs text-cc-suave">{origenTerreno(generador.datos)}</p>}
+          {concepto.analisis_tipo === 'excavacion' && <p className="mt-1 text-xs text-cc-suave">{origenExcavacion(generador.datos)}</p>}
           <p className="num mt-1 text-sm">
             Volumen: <b style={{ color: '#3ddba6' }}>{fmt(generador.cantidad)} {unidad}</b>
           </p>
