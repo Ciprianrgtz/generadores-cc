@@ -131,13 +131,22 @@ function forma([contorno, ...huecos]) {
  */
 export default function Visor3D({ terreno, generadores, altura = 360 }) {
   const caja = useRef(null)
+  const motor = useRef(null) // escena, cámara y lo dibujado; se crea una vez y se reusa
   const [ver, setVer] = useState({ terreno: true, excavacion: true, afine: true })
-  const [sel, setSel] = useState(null) // pieza elegida con un clic
+  const [sel, setSel] = useState(null) // clave de la pieza elegida con un clic
   const exc = useMemo(() => piezasDeExcavacion(generadores), [generadores])
   const afi = useMemo(() => piezasDeAfine(generadores), [generadores])
-  // lo que se dibuja; el índice de cada pieza es el que se elige con el clic
-  const todas = useMemo(() => [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : [])], [exc, afi, ver.excavacion, ver.afine])
+  // lo que se dibuja; la clave identifica la pieza aunque se vuelva a calcular al capturar
+  const todas = useMemo(() => {
+    const vistas = {}
+    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : [])].map((p) => {
+      const base = `${p.tipo}|${p.concepto}|${p.nombre}|${p.ubicacion}`
+      const n = (vistas[base] = (vistas[base] ?? 0) + 1)
+      return { ...p, clave: n > 1 ? `${base}|${n}` : base }
+    })
+  }, [exc, afi, ver.excavacion, ver.afine])
 
+  // 1) escena, cámara, controles y selección: una sola vez
   useEffect(() => {
     const el = caja.current
     if (!el) return
@@ -155,114 +164,43 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
     const sol = new THREE.DirectionalLight(0xffffff, 1.1)
     sol.position.set(30, 60, 20)
     escena.add(sol)
+    const contenido = new THREE.Group()
+    escena.add(contenido)
 
-    // plano (x, y) → escena (x, arriba, −y); la extrusión sube desde 0
-    const extruir = (f, alto) => {
-      const geo = new THREE.ExtrudeGeometry(f, { depth: alto, bevelEnabled: false })
-      geo.rotateX(-Math.PI / 2)
-      return geo
-    }
-    const hayExcavacion = todas.length > 0
-    const conAfine = todas.some((p) => p.tipo === 'afine')
-    const todo = new THREE.Group()
-    escena.add(todo)
+    const m = { escena, camara, controles, contenido, seleccionables: [], todas: [], encima: null, elegida: null, encuadre: null, rejilla: null, pintar: null }
+    motor.current = m
 
-    const v = terreno?.vertices
-    if (v?.length >= 3 && ver.terreno) {
-      const geo = extruir(forma([v]), 0.04)
-      const placa = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x1d9e75, transparent: true, opacity: hayExcavacion ? 0.18 : 0.55, depthWrite: !hayExcavacion }))
-      todo.add(placa)
-      todo.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x3ddba6 })))
-    }
-    const seleccionables = []
-    // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
-    const opacidad = (pz) => (pz.tipo === 'afine' ? 0.9 : conAfine ? 0.25 : 0.85)
-    const agregar = (geo, pz, i) => {
-      const m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: COLORES[pz.tipo], transparent: true, opacity: opacidad(pz), side: pz.tipo === 'afine' ? THREE.DoubleSide : THREE.FrontSide, depthWrite: pz.tipo === 'afine' || !conAfine }))
-      m.userData.pieza = i
-      seleccionables.push(m)
-      todo.add(m)
-    }
-    todas.forEach((pz, i) => {
-      for (const pol of pz.huella) {
-        if (pz.tipo !== 'afine') {
-          const geo = extruir(forma(pol), pz.profundidad)
-          geo.translate(0, -pz.profundidad, 0)
-          agregar(geo, pz, i)
-          todo.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x2b1d10, transparent: true, opacity: conAfine ? 0.25 : 0.6 })))
-          continue
-        }
-        // fondo de la cepa, un poco arriba del fondo para que no se encime con la caja
-        const fondo = new THREE.ShapeGeometry(forma(pol))
-        fondo.rotateX(-Math.PI / 2)
-        fondo.translate(0, -pz.profundidad + 0.01, 0)
-        agregar(fondo, pz, i)
-        // las dos paredes largas (taludes), de 0 al fondo
-        for (const { a, b, largo } of paredesLargas(pol[0])) {
-          const pared = new THREE.PlaneGeometry(largo, pz.profundidad)
-          pared.rotateY(Math.atan2(b[1] - a[1], b[0] - a[0]))
-          pared.translate((a[0] + b[0]) / 2, -pz.profundidad / 2, -(a[1] + b[1]) / 2)
-          agregar(pared, pz, i)
-        }
-      }
-    })
-
-    // selección: el cursor ilumina la pieza; un clic (sin arrastrar) la elige y muestra su ficha
+    // el cursor ilumina la pieza; un clic (sin arrastrar) la elige y muestra su ficha
     const rayo = new THREE.Raycaster()
     const puntero = new THREE.Vector2()
-    let encima = null
-    let elegida = null
-    const pintar = () => {
-      for (const m of seleccionables) {
-        const i = m.userData.pieza
-        m.material.emissive.setHex(i === elegida ? 0x3ddba6 : i === encima ? 0x555555 : 0x000000)
-        m.material.emissiveIntensity = i === elegida ? 0.55 : 0.5
-        m.material.opacity = elegida == null ? opacidad(todas[i]) : i === elegida ? 0.9 : 0.15
-      }
-    }
     const tocar = (e) => {
       const r = render.domElement.getBoundingClientRect()
       puntero.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1)
       rayo.setFromCamera(puntero, camara)
-      const golpes = rayo.intersectObjects(seleccionables, false)
+      const golpes = rayo.intersectObjects(m.seleccionables, false)
       // el afine va por dentro de la cepa: si el rayo lo toca, gana a la caja de excavación
-      const g = golpes.find((x) => todas[x.object.userData.pieza]?.tipo === 'afine') ?? golpes[0]
-      return g?.object.userData.pieza ?? null
+      const g = golpes.find((x) => x.object.userData.tipo === 'afine') ?? golpes[0]
+      return g?.object.userData.clave ?? null
     }
     let inicio = null
     const alMover = (e) => {
-      const i = tocar(e)
-      if (i !== encima) {
-        encima = i
-        render.domElement.style.cursor = i == null ? 'grab' : 'pointer'
-        pintar()
+      const k = tocar(e)
+      if (k !== m.encima) {
+        m.encima = k
+        render.domElement.style.cursor = k == null ? 'grab' : 'pointer'
+        m.pintar?.()
       }
     }
     const alBajar = (e) => (inicio = { x: e.clientX, y: e.clientY })
     const alSubir = (e) => {
       if (!inicio || Math.hypot(e.clientX - inicio.x, e.clientY - inicio.y) > 4) return // fue un arrastre
-      elegida = tocar(e)
-      pintar()
-      setSel(elegida)
+      m.elegida = tocar(e)
+      m.pintar?.()
+      setSel(m.elegida)
     }
     render.domElement.addEventListener('pointermove', alMover)
     render.domElement.addEventListener('pointerdown', alBajar)
     render.domElement.addEventListener('pointerup', alSubir)
-
-    const centro = new THREE.Vector3(0, 0, 0)
-    let tam = 20
-    const caja3 = new THREE.Box3().setFromObject(todo)
-    if (!caja3.isEmpty()) {
-      caja3.getCenter(centro)
-      const dim = caja3.getSize(new THREE.Vector3())
-      tam = Math.max(dim.x, dim.z, 4)
-    }
-    const rejilla = new THREE.GridHelper(Math.ceil((tam * 1.8) / 5) * 5, Math.ceil((tam * 1.8) / 5), 0x4b5a55, 0x2a3431)
-    rejilla.position.set(centro.x, hayExcavacion ? -1.2 : -0.01, centro.z)
-    escena.add(rejilla)
-    camara.position.set(centro.x + tam * 0.9, tam * 0.8, centro.z + tam * 1.2)
-    controles.target.copy(centro)
-    controles.update()
 
     const ajustar = () => {
       const w = el.clientWidth || 600
@@ -291,12 +229,120 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
       controles.dispose()
       escena.traverse((o) => {
         o.geometry?.dispose?.()
-        if (o.material) [].concat(o.material).forEach((m) => m.dispose())
+        if (o.material) [].concat(o.material).forEach((x) => x.dispose())
       })
       render.dispose()
       el.removeChild(render.domElement)
+      motor.current = null
     }
-  }, [terreno, todas, ver.terreno, altura])
+  }, [altura])
+
+  // 2) lo dibujado: se rehace cada vez que cambia lo calculado (también el borrador que se está capturando)
+  useEffect(() => {
+    const m = motor.current
+    if (!m) return
+    const { contenido, escena, camara, controles } = m
+    for (const o of [...contenido.children]) {
+      contenido.remove(o)
+      o.geometry?.dispose?.()
+      if (o.material) [].concat(o.material).forEach((x) => x.dispose())
+    }
+    m.seleccionables = []
+    m.todas = todas
+
+    // plano (x, y) → escena (x, arriba, −y); la extrusión sube desde 0
+    const extruir = (f, alto) => {
+      const geo = new THREE.ExtrudeGeometry(f, { depth: alto, bevelEnabled: false })
+      geo.rotateX(-Math.PI / 2)
+      return geo
+    }
+    const hayExcavacion = todas.length > 0
+    const conAfine = todas.some((p) => p.tipo === 'afine')
+
+    const v = terreno?.vertices
+    if (v?.length >= 3 && ver.terreno) {
+      const geo = extruir(forma([v]), 0.04)
+      contenido.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x1d9e75, transparent: true, opacity: hayExcavacion ? 0.18 : 0.55, depthWrite: !hayExcavacion })))
+      contenido.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x3ddba6 })))
+    }
+    // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
+    const opacidad = (tipo) => (tipo === 'afine' ? 0.9 : conAfine ? 0.25 : 0.85)
+    const agregar = (geo, pz) => {
+      const malla = new THREE.Mesh(
+        geo,
+        new THREE.MeshStandardMaterial({
+          color: COLORES[pz.tipo],
+          transparent: true,
+          opacity: opacidad(pz.tipo),
+          side: pz.tipo === 'afine' ? THREE.DoubleSide : THREE.FrontSide,
+          depthWrite: pz.tipo === 'afine' || !conAfine,
+        }),
+      )
+      malla.userData = { clave: pz.clave, tipo: pz.tipo }
+      m.seleccionables.push(malla)
+      contenido.add(malla)
+    }
+    for (const pz of todas) {
+      for (const pol of pz.huella) {
+        if (pz.tipo !== 'afine') {
+          const geo = extruir(forma(pol), pz.profundidad)
+          geo.translate(0, -pz.profundidad, 0)
+          agregar(geo, pz)
+          contenido.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x2b1d10, transparent: true, opacity: conAfine ? 0.25 : 0.6 })))
+          continue
+        }
+        // fondo de la cepa, un poco arriba del fondo para que no se encime con la caja
+        const fondo = new THREE.ShapeGeometry(forma(pol))
+        fondo.rotateX(-Math.PI / 2)
+        fondo.translate(0, -pz.profundidad + 0.01, 0)
+        agregar(fondo, pz)
+        // las dos paredes largas (taludes), de 0 al fondo
+        for (const { a, b, largo } of paredesLargas(pol[0])) {
+          const pared = new THREE.PlaneGeometry(largo, pz.profundidad)
+          pared.rotateY(Math.atan2(b[1] - a[1], b[0] - a[0]))
+          pared.translate((a[0] + b[0]) / 2, -pz.profundidad / 2, -(a[1] + b[1]) / 2)
+          agregar(pared, pz)
+        }
+      }
+    }
+
+    m.pintar = () => {
+      const hayElegida = m.elegida != null && m.todas.some((p) => p.clave === m.elegida)
+      for (const malla of m.seleccionables) {
+        const { clave, tipo } = malla.userData
+        malla.material.emissive.setHex(clave === m.elegida ? 0x3ddba6 : clave === m.encima ? 0x555555 : 0x000000)
+        malla.material.emissiveIntensity = clave === m.elegida ? 0.55 : 0.5
+        malla.material.opacity = !hayElegida ? opacidad(tipo) : clave === m.elegida ? 0.9 : 0.15
+      }
+    }
+    m.pintar()
+
+    // la cámara se encuadra al abrir o si cambia el terreno; al capturar se queda donde está
+    const caja3 = new THREE.Box3().setFromObject(contenido)
+    const firma = `${JSON.stringify(terreno?.vertices ?? null)}|${caja3.isEmpty()}|${hayExcavacion}`
+    if (m.encuadre === firma) return
+    m.encuadre = firma
+    const centro = new THREE.Vector3(0, 0, 0)
+    let tam = 20
+    if (!caja3.isEmpty()) {
+      caja3.getCenter(centro)
+      const dim = caja3.getSize(new THREE.Vector3())
+      tam = Math.max(dim.x, dim.z, 4)
+    }
+    if (m.rejilla) {
+      escena.remove(m.rejilla)
+      m.rejilla.geometry.dispose()
+      m.rejilla.material.dispose()
+    }
+    m.rejilla = new THREE.GridHelper(Math.ceil((tam * 1.8) / 5) * 5, Math.ceil((tam * 1.8) / 5), 0x4b5a55, 0x2a3431)
+    m.rejilla.position.set(centro.x, hayExcavacion ? -1.2 : -0.01, centro.z)
+    escena.add(m.rejilla)
+    camara.position.set(centro.x + tam * 0.9, tam * 0.8, centro.z + tam * 1.2)
+    controles.target.copy(centro)
+    controles.update()
+  }, [terreno, todas, ver.terreno])
+
+  const elegida = sel != null ? todas.find((p) => p.clave === sel) : null
 
   const casilla = (k, texto) => (
     <label className="flex items-center gap-1.5 text-xs text-cc-suave">
@@ -340,7 +386,7 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
             {ver.afine && afi.piezas.length > 0 && muestra(COLORES.afine, 'Afine: fondo y taludes')}
           </div>
         )}
-        {sel != null && todas[sel] && <FichaPieza pieza={todas[sel]} />}
+        {elegida && <FichaPieza pieza={elegida} />}
         {ver.excavacion && exc.sinUbicar > 0 && (
           <p className="pointer-events-none absolute bottom-2 left-3 text-[11px]" style={{ color: '#f0b866' }}>
             {exc.sinUbicar} renglón(es) de excavación sin ubicación en planta: suman al volumen pero no se dibujan.

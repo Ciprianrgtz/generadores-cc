@@ -43,6 +43,8 @@ Un sistema de **cuantificación (generadores de obra) y presupuestos** para casa
 8. **Versiones congeladas.** Al aprobar un presupuesto se congelan precios, cantidades y la **versión del conjunto de reglas**. Un cambio posterior en las reglas no mueve en silencio los presupuestos ya entregados.
 9. **Un cambio en una ficha o regla invalida la verificación** de los elementos afectados: regresan a "por verificar".
 10. **Casos de prueba (golden tests).** Casa Bielva, una vez calibrada, debe reproducirse al centavo después de cualquier cambio de código o de reglas.
+11. **Todo lo que se calcula se dibuja en tiempo real.** Cada método manda al modelo 3D lo que se está capturando (el borrador), no solo lo guardado. Ver lo calculado es la forma de revisarlo.
+12. **Base para cualquier proyecto.** Nada de datos de una obra escritos en el código: medidas, huellas, ejes y criterios viven en la base o se importan del DXF. Lo que hoy está atado a Bielva (`src/dominio/bielva/`) es provisional y se debe generalizar; actualizar la app solo cuando de verdad se requiera.
 
 ## 4. Anatomía del presupuesto (dominio)
 

@@ -27,7 +27,7 @@ const aTexto = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, t
  * Volumen = largo × (ancho total + 2·sobreancho) × (desplante + plantilla) × piezas,
  * más las franjas de tierra menores a la separación mínima entre cepas.
  */
-export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir, onGuardado, onVolver }) {
+export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir, onGuardado, onVolver, onCapturar }) {
   const [criterios, setCriterios] = useState(aTexto(CRITERIOS_EXCAVACION))
   const [renglones, setRenglones] = useState([{ ...RENGLON_VACIO }])
   const [franjas, setFranjas] = useState([])
@@ -68,6 +68,10 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
     [criterios, renglones, franjas, superficies],
   )
   const r = useMemo(() => analizarExcavacion(entrada), [entrada])
+  // lo que se captura se dibuja en el 3D en tiempo real
+  useEffect(() => {
+    onCapturar?.('excavacion', entrada)
+  }, [entrada, onCapturar])
   const ref = num(referencia)
   const cuadra = ref > 0 && Math.abs(r.cantidad - ref) < 0.005
   const hayValidos = r.filas.some((f) => f.valido) || r.areas.some((f) => f.valido)

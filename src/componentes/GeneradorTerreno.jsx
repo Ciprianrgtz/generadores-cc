@@ -19,7 +19,7 @@ const texto = (n) => (Number.isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : '
  *   · vértices: coordenadas en metros, para un terreno irregular
  *   · DXF: polilínea cerrada de AutoCAD, de preferencia en una capa llamada "terreno"
  */
-export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, onGuardado, onVolver }) {
+export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, onGuardado, onVolver, onCapturar }) {
   const [modo, setModo] = useState('rectangulo')
   const [ancho, setAncho] = useState('')
   const [largo, setLargo] = useState('')
@@ -62,6 +62,11 @@ export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, on
     () => (motivo ? null : analizarTerreno({ modo, ancho: num(ancho), largo: num(largo), vertices: numericos })),
     [motivo, modo, ancho, largo, numericos],
   )
+
+  // el terreno que se captura se dibuja en el 3D en tiempo real
+  useEffect(() => {
+    if (r) onCapturar?.('terreno', { vertices: r.vertices, area: r.area, perimetro: r.perimetro })
+  }, [r, onCapturar])
   const ref = num(referencia)
   const cuadra = r && ref > 0 && Math.abs(r.area - ref) < 0.005
 

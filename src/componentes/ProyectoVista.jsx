@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { readSheet } from 'read-excel-file/browser'
 import { leerCatalogoNeodata } from '../dominio/importarNeodata'
 import * as repo from '../lib/proyectosRepo'
@@ -19,9 +19,24 @@ const { mensajeError } = repo
  */
 export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZapata }) {
   const [proy, setProy] = useState(null)
-  const [generadores, setGeneradores] = useState([]) // análisis guardados, para el modelo 3D
   const [error, setError] = useState(null)
   const [analisis, setAnalisis] = useState(null) // concepto que se está analizando
+  const [generadores, setGeneradores] = useState([]) // análisis guardados, para el modelo 3D
+  const [borrador, setBorrador] = useState(null) // lo que se está capturando en el análisis abierto
+  // el 3D dibuja lo guardado y, encima, el borrador del concepto abierto (tiempo real)
+  const enVivo = useMemo(() => {
+    if (!borrador) return generadores
+    const otros = generadores.filter((g) => g.paquete_concepto_id !== borrador.paquete_concepto_id)
+    return [...otros, borrador]
+  }, [generadores, borrador])
+  const cerrarAnalisis = () => {
+    setAnalisis(null)
+    setBorrador(null)
+  }
+  const alCapturar = useCallback(
+    (tipo, datos) => analisis && setBorrador({ paquete_concepto_id: analisis.id, tipo, datos, concepto: { clave: analisis.clave } }),
+    [analisis],
+  )
   const puedeEscribir = perfil && perfil.rol !== 'lectura'
 
   const cargar = useCallback(async () => {
@@ -59,14 +74,15 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
         <NuevoPaquete proyecto={proy} puedeEscribir={puedeEscribir} onCreado={cargar} />
       ) : (
         <>
-          <Visor3D terreno={proy.terreno} generadores={generadores} />
+          <Visor3D terreno={borrador?.tipo === 'terreno' ? borrador.datos : proy.terreno} generadores={enVivo} />
           {analisis?.analisis_tipo === 'excavacion' ? (
             <GeneradorExcavacion
               concepto={analisis}
               proyecto={proy}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
-              onVolver={() => setAnalisis(null)}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
             />
           ) : analisis?.analisis_tipo === 'afine' ? (
             <GeneradorAfine
@@ -74,7 +90,8 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               generadores={generadores}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
-              onVolver={() => setAnalisis(null)}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
             />
           ) : analisis ? (
             <GeneradorTerreno
@@ -82,7 +99,8 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               proyecto={proy}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
-              onVolver={() => setAnalisis(null)}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
             />
           ) : (
             <PaqueteDetalle

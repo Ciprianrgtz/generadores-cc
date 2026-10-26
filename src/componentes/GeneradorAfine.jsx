@@ -18,7 +18,7 @@ const aTexto = (c) => ({ ...c, ml: texto(c.ml), ancho: texto(c.ancho), profundid
  * excavación del paquete y suma su fondo y sus dos paredes. No se vuelven a capturar medidas;
  * solo se pueden quitar cepas o corregir los ml del elemento.
  */
-export default function GeneradorAfine({ concepto, generadores, puedeEscribir, onGuardado, onVolver }) {
+export default function GeneradorAfine({ concepto, generadores, puedeEscribir, onGuardado, onVolver, onCapturar }) {
   const excavaciones = generadores.filter((g) => g.tipo === 'excavacion' && g.datos?.renglones?.length)
   const [origenId, setOrigenId] = useState(null)
   const [cepas, setCepas] = useState(null)
@@ -56,6 +56,9 @@ export default function GeneradorAfine({ concepto, generadores, puedeEscribir, o
     [lista],
   )
   const r = useMemo(() => analizarAfine({ cepas: entrada }), [entrada])
+  useEffect(() => {
+    onCapturar?.('afine', { cepas: entrada }) // el 3D dibuja lo que se captura en tiempo real
+  }, [entrada, onCapturar])
   const ref = num(referencia)
   const cuadra = ref > 0 && Math.abs(r.cantidad - ref) < 0.005
   const desactualizado =
