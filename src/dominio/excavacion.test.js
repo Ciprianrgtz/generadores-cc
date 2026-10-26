@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { EXCAVACION_BIELVA } from './bielva/excavacion.js'
 import { analizarExcavacion, calcularRenglon, CRITERIOS_EXCAVACION as C } from './excavacion.js'
 
 describe('Excavación por elementos', () => {
@@ -48,9 +49,25 @@ describe('Excavación por elementos', () => {
   })
 
   it('losa con talud CI-1: ancho total × alto total, sin sobreancho ni plantilla', () => {
-    const f = calcularRenglon({ elemento: 'CI-1', largo: 10, ancho: 0.6, profundidad: 0.25, sobreancho: false, plantilla: false }, C)
+    const f = calcularRenglon({ elemento: 'CI-1', largo: 10, ancho: 0.6, profundidad: 0.25, lados: 0, plantilla: false }, C)
     expect(f.volumen).toBeCloseTo(10 * 0.6 * 0.25, 10)
     expect(f.formula).toBe('10.00 × 0.60 × 0.25 = 1.50 m³')
+    // análisis guardado con la casilla anterior
+    expect(calcularRenglon({ largo: 1, ancho: 0.6, profundidad: 0.25, sobreancho: false, plantilla: false }, C).lados).toBe(0)
+  })
+
+  it('zapata en colindancia: sobreancho de un solo lado', () => {
+    const f = calcularRenglon({ elemento: 'ZC-01', largo: 4.82, ancho: 0.8, profundidad: 0.8, lados: 1 }, C)
+    expect(f.anchoCepa).toBeCloseTo(0.9, 10)
+    expect(f.formula).toBe('4.82 × (0.80 + 0.10) × (0.80 + 0.05) = 3.69 m³')
+  })
+
+  it('Casa Bielva completa (zapatas en colindancia, TL-1, losas y firme sin cochera): 30.88 m³', () => {
+    const r = analizarExcavacion(EXCAVACION_BIELVA)
+    expect(r.porElemento['ZC-01'].ml + r.porElemento['ZC-02'].ml).toBeCloseTo(21.66, 10)
+    expect(r.volElementos).toBeCloseTo(21.66 * 0.9 * 0.85 + 8.62 * 0.45 * 0.3, 10)
+    expect(r.cantidad).toBe(30.88)
+    expect(Math.abs(r.cantidad - EXCAVACION_BIELVA.referencia)).toBeLessThan(0.3) // Neodata 31.13
   })
 
   it('el firme se excava por área × espesor, sin sobreancho ni plantilla', () => {

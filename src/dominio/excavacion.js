@@ -9,7 +9,8 @@ import { dato, fmt, r2 } from './redondeo.js'
  *     (el más ancho de la sección) por la PROFUNDIDAD hasta su desplante.
  *   · A la profundidad se suma la plantilla de concreto que va debajo (5 cm).
  *   · Al ancho se suma un sobreancho de 10 cm por lado para maniobrar el armado,
- *     el colado y los amarres.
+ *     el colado y los amarres. Las zapatas en colindancia solo lo llevan del lado de
+ *     adentro (no se excava hacia el lindero).
  *   · Si entre dos excavaciones queda menos de 35 cm de tierra, esa franja también
  *     se excava (en obra no se sostiene); su volumen cuenta como excavación y como relleno.
  *
@@ -22,8 +23,10 @@ import { dato, fmt, r2 } from './redondeo.js'
  *
  * Losa de cimentación con talud (CI, CC): se excava el ancho total por el alto total, sin
  * seguir los taludes y sin sobreancho ni plantilla (lleva nylon). Ej. CI-1: 0.25 × (0.40 +
- * 0.10 + 0.10). La contratrabe CT-2 que va dentro ya queda incluida. Esos renglones se
- * marcan con sobreancho = false y plantilla = false.
+ * 0.10 + 0.10). La contratrabe CT-2 que va dentro ya queda incluida. Esos renglones van
+ * con lados = 0 y plantilla = false. La losa de cimentación nunca lleva plantilla: es un
+ * sistema de bajo costo que la sustituye por plástico negro o membrana, que no cuenta en
+ * la profundidad.
  *
  * Los elementos de superficie (el firme de concreto de 10 cm que va en toda el área
  * interior de la casa) se excavan por área, sin sobreancho ni plantilla:
@@ -37,21 +40,27 @@ export const CRITERIOS_EXCAVACION = {
 
 const n = (v) => (Number.isFinite(v) ? v : 0)
 
+/** Lados con sobreancho: 2 normal, 1 en colindancia (no se excava hacia el lindero), 0 en losas con talud. */
+export function ladosDeSobreancho(r) {
+  if ([0, 1, 2].includes(r.lados)) return r.lados
+  return r.sobreancho === false ? 0 : 2 // análisis guardados antes de existir «lados»
+}
+
 export function calcularRenglon(r, c) {
   const piezas = r.piezas > 0 ? r.piezas : 1
-  const conSobreancho = r.sobreancho !== false
+  const lados = ladosDeSobreancho(r)
   const conPlantilla = r.plantilla !== false
-  const ancho = n(r.ancho) + (conSobreancho ? 2 * c.sobreancho : 0)
+  const ancho = n(r.ancho) + lados * c.sobreancho
   const alto = n(r.profundidad) + (conPlantilla ? c.plantilla : 0)
   const volumen = n(r.largo) * ancho * alto * piezas
   const valido = r.largo > 0 && r.ancho > 0 && r.profundidad > 0
-  const tAncho = conSobreancho ? `(${dato(n(r.ancho))} + 2×${dato(c.sobreancho)})` : dato(n(r.ancho))
+  const tAncho = lados ? `(${dato(n(r.ancho))} + ${lados === 1 ? '' : `${lados}×`}${dato(c.sobreancho)})` : dato(n(r.ancho))
   const tAlto = conPlantilla ? `(${dato(n(r.profundidad))} + ${dato(c.plantilla)})` : dato(n(r.profundidad))
   const formula =
     `${dato(n(r.largo))} × ${tAncho} × ${tAlto}` +
     (piezas !== 1 ? ` × ${dato(piezas)}` : '') +
     ` = ${fmt(volumen)} m³`
-  return { ...r, piezas, sobreancho: conSobreancho, plantilla: conPlantilla, anchoCepa: ancho, altoCepa: alto, volumen, valido, formula }
+  return { ...r, piezas, lados, plantilla: conPlantilla, anchoCepa: ancho, altoCepa: alto, volumen, valido, formula }
 }
 
 export function calcularSeparacion(s, c) {

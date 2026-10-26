@@ -363,10 +363,13 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 - Las cotas del corte son las que cuentan (los dibujos pueden estar fuera de escala). La profundidad se mide desde el **NTN ±0.00**.
 - **Zapata (ZC-1, ZC-2)**: el alto es la suma de lo que lleva encima (zapata 0.20 + muro de enrase + dala de desplante = 0.80 hasta NDZC −0.80); el muro de enrase y la dala **solo aportan altura**, el ancho es el de la zapata (0.80 + 0.10 por lado). La contratrabe CT-1 queda dentro de esa cepa.
 - **Contratrabes o trabes de liga fuera de zapatas o losas**: `largo × (ancho + 2 × 0.10) × (alto + 0.05)`.
-- **Losa de cimentación con talud (CI, CC)**: se excava el ancho total por el alto total, sin seguir los taludes, sin sobreancho ni plantilla. CI-1: `0.25 × (0.40 + 0.10 + 0.10)`; la CT-2 que va dentro ya queda incluida. En el generador se desmarcan «+Sobre» y «+Plant» (se hace solo al escribir CI o CC).
+- **Losa de cimentación con talud (CI, CC)**: se excava el ancho total por el alto total, sin seguir los taludes, sin sobreancho ni plantilla. CI-1: `0.25 × (0.40 + 0.10 + 0.10)`; la CT-2 que va dentro ya queda incluida. En el generador: «Sobreancho: sin sobreancho» y sin «+Plant» (se pone solo al escribir CI o CC).
+- **Zapatas en colindancia**: sobreancho **de un solo lado** (el de adentro); no se excava hacia el lindero. En el generador: «Sobreancho: 1 lado».
+- La losa de cimentación **nunca lleva plantilla**: es un sistema de bajo costo que la sustituye por plástico negro o membrana, que no cuenta en la profundidad.
+- **Área del firme**: neta, sin lo que ya se excava más hondo (zapatas, trabes, bandas de losa). La **cochera** no entra: su firme es otro concepto (APB16A').
+- **Bielva** (`src/dominio/bielva/excavacion.js`, botón «Precargar cimentación de Bielva»): zapatas 21.66 ml × 0.90 × 0.85 (esquina X-08/Y-04 contada una vez), TL-1 8.62 ml × 0.45 × 0.30, bandas de losa 28.34 m² × 0.25, parte de 10 cm de losa y firme 60.66 m² × 0.10 → **30.88 m³** contra 31.13 de Neodata (−0.8 %). Áreas medidas en el DXF con un raster de 5 mm.
 - Cuando hay losa de cimentación, su parte de 10 cm hace de firme: en el presupuesto el firme de concreto se sustituye por el sistema de losa.
 - El **firme de concreto de 10 cm** va en toda el área interior de la casa y también se excava, por superficie: `Volumen = área × espesor`, sin sobreancho ni plantilla (sección «Superficies» del generador).
-- Bielva: las zapatas corridas (22.56 ml, ancho 0.80, desplante 0.80) dan 19.18 m³; Neodata trae 31.13 m³ → faltan por capturar contratrabes, TL-1 y lo demás que toca el suelo.
 
 Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.
 
