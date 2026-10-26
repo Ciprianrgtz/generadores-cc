@@ -4,6 +4,7 @@ import { leerCatalogoNeodata } from '../dominio/importarNeodata'
 import * as repo from '../lib/proyectosRepo'
 import * as paquetes from '../lib/paquetesRepo'
 import { botones } from '../lib/ui'
+import EjesProyecto from './EjesProyecto'
 import GeneradorAfine from './GeneradorAfine'
 import GeneradorExcavacion from './GeneradorExcavacion'
 import GeneradorTerreno from './GeneradorTerreno'
@@ -23,6 +24,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
   const [analisis, setAnalisis] = useState(null) // concepto que se está analizando
   const [generadores, setGeneradores] = useState([]) // análisis guardados, para el modelo 3D
   const [borrador, setBorrador] = useState(null) // lo que se está capturando en el análisis abierto
+  const [ejesBorrador, setEjesBorrador] = useState(null) // ejes que se están capturando, sin guardar
   // el 3D dibuja lo guardado y, encima, el borrador del concepto abierto (tiempo real)
   const enVivo = useMemo(() => {
     if (!borrador) return generadores
@@ -60,6 +62,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
   }
 
   if (!proy) return <p className="text-sm text-cc-suave">{error ?? 'Cargando…'}</p>
+  const ejesVivos = ejesBorrador ?? proy.ejes ?? null
 
   return (
     <div className="grid gap-4">
@@ -74,10 +77,12 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
         <NuevoPaquete proyecto={proy} puedeEscribir={puedeEscribir} onCreado={cargar} />
       ) : (
         <>
-          <Visor3D terreno={borrador?.tipo === 'terreno' ? borrador.datos : proy.terreno} generadores={enVivo} />
+          <Visor3D terreno={borrador?.tipo === 'terreno' ? borrador.datos : proy.terreno} ejes={ejesVivos} generadores={enVivo} />
+          <EjesProyecto key={JSON.stringify(proy.ejes ?? null)} proyecto={proy} puedeEscribir={puedeEscribir} onGuardado={cargar} onCapturar={setEjesBorrador} />
           {analisis?.analisis_tipo === 'excavacion' ? (
             <GeneradorExcavacion
               concepto={analisis}
+              ejes={ejesVivos}
               proyecto={proy}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
@@ -87,6 +92,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
           ) : analisis?.analisis_tipo === 'afine' ? (
             <GeneradorAfine
               concepto={analisis}
+              ejes={ejesVivos}
               generadores={generadores}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
@@ -96,6 +102,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
           ) : analisis ? (
             <GeneradorTerreno
               concepto={analisis}
+              ejes={ejesVivos}
               proyecto={proy}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}

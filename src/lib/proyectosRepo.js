@@ -54,11 +54,12 @@ export async function crearProyecto(nombre) {
 }
 
 export async function proyecto(id) {
-  const p = ok(await supabase.from('proyectos').select('id, clave, nombre, estado, terreno, paquetes(id, nombre, estado)').eq('id', id).single())
+  const p = ok(await supabase.from('proyectos').select('id, clave, nombre, estado, terreno, ejes, paquetes(id, nombre, estado)').eq('id', id).single())
   return { ...p, paquete: p.paquetes?.[0] ?? null }
 }
 
 export const guardarTerreno = async (proyectoId, terreno) => ok(await supabase.from('proyectos').update({ terreno }).eq('id', proyectoId))
+export const guardarEjes = async (proyectoId, ejes) => ok(await supabase.from('proyectos').update({ ejes }).eq('id', proyectoId))
 
 /** El paquete del proyecto se crea desde el catálogo (partidaIds) o vacío ([]). */
 export async function crearPaqueteDelProyecto(proyectoId, nombre, partidaIds = []) {

@@ -19,7 +19,7 @@ const texto = (n) => (Number.isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : '
  *   · vértices: coordenadas en metros, para un terreno irregular
  *   · DXF: polilínea cerrada de AutoCAD, de preferencia en una capa llamada "terreno"
  */
-export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, onGuardado, onVolver, onCapturar }) {
+export default function GeneradorTerreno({ concepto, proyecto, ejes, puedeEscribir, onGuardado, onVolver, onCapturar }) {
   const [modo, setModo] = useState('rectangulo')
   const [ancho, setAncho] = useState('')
   const [largo, setLargo] = useState('')
@@ -91,10 +91,10 @@ export default function GeneradorTerreno({ concepto, proyecto, puedeEscribir, on
   function usarPoligono(p) {
     const f = UNIDADES_DXF[dxf.unidad]
     const pts = p.vertices.map(([x, y]) => [x * f, y * f])
-    // se mueve a la esquina (0,0): el área no cambia y el visor 3D queda cerca del origen
-    const minX = Math.min(...pts.map((q) => q[0]))
-    const minY = Math.min(...pts.map((q) => q[1]))
-    setVertices(pts.map(([x, y]) => [texto(x - minX), texto(y - minY)]))
+    // con ejes, al mismo origen que ellos (así coincide con lo demás); sin ejes, a la esquina (0,0).
+    // El área no cambia y el visor 3D queda cerca del origen.
+    const o = ejes?.origen_dxf ?? { x: Math.min(...pts.map((q) => q[0])), y: Math.min(...pts.map((q) => q[1])) }
+    setVertices(pts.map(([x, y]) => [texto(x - o.x), texto(y - o.y)]))
     setOrigen({ archivo: dxf.archivo, capa: p.capa, unidad: dxf.unidad })
     setModo('poligono')
     setDxf(null)

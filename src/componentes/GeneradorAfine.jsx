@@ -75,7 +75,7 @@ export default function GeneradorAfine({ concepto, generadores, puedeEscribir, o
     try {
       const datos = {
         origen: origen ? { paquete_concepto_id: origen.paquete_concepto_id, concepto: origen.concepto?.clave ?? null, actualizado_en: origen.actualizado_en ?? null } : null,
-        cepas: entrada.map((c) => ({ elemento: c.elemento, eje: c.eje, entre: c.entre, ml: c.ml, ancho: c.ancho, profundidad: c.profundidad, piezas: c.piezas, incluir: c.incluir !== false })),
+        cepas: entrada.map((c) => ({ elemento: c.elemento, eje: c.eje, entre: c.entre, ml: c.ml, ancho: c.ancho, profundidad: c.profundidad, piezas: c.piezas, desfase: c.desfase ?? null, inicio: c.inicio ?? null, incluir: c.incluir !== false })),
         referencia: ref > 0 ? ref : null,
       }
       const g = await repo.guardarGenerador(concepto.id, { tipo: 'afine', datos, cantidad: Math.round(r.total * 10000) / 10000, unidad: concepto.unidad, formula: r.formula })

@@ -355,6 +355,14 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `excavacion` — Excavación por elementos | Excavación de cepas (CIM001) | Renglones por tramo de cada elemento que toca el suelo (eje, entre, largo, ancho total, desplante, piezas). Reglas abajo. |
 | `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
 
+### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
+
+- Los **ejes** (`proyectos.ejes`) son el sistema de coordenadas de la obra, en metros: `verticales` (posición x) y `horizontales` (posición y), más `origen_dxf` (dónde cae el 0,0 en el DXF). Se importan del DXF desde la tarjeta «Ejes del proyecto» (`src/dominio/ejes.js` → `leerEjesDxf`: cada etiqueta de eje se asigna a la línea de una capa «eje» que remata junto a ella; las líneas que se cruzan forman una planta) o se capturan a mano. Bielva: Y-00 0 · Y-01 1.07 · Y-02 3.27 · Y-03 4.35 · Y-04 7.00; X-00 0 … X-08 20.00.
+- Cada renglón se **dibuja con sus propios datos** (`huellaPorEjes`): eje, entre qué ejes, largo, ancho de la cepa, **desfase** (del eje al centro de la cepa, + hacia donde crecen las coordenadas) e **inicio** (desde el primer eje de «entre»; vacío = centrado). Si cambia una medida, cambia el dibujo.
+- Las **superficies** (losas, firmes) se importan del DXF como polilíneas cerradas, ya en coordenadas del proyecto; las que caen dentro de otra se pueden restar como huecos. El terreno importado del DXF usa el mismo origen que los ejes.
+- Cada pantalla de análisis manda su borrador al 3D (`onCapturar`); el visor conserva la cámara y solo redibuja el contenido.
+- Pendiente de generalizar: la precarga de Bielva (`src/dominio/bielva/`) sigue en código como muestra; con ejes + importación de superficies ya se puede capturar sin ella.
+
 ### Reglas de excavación (explicadas por Ciprian, 26-oct-2026)
 
 - Se excava **todo elemento en contacto con el suelo**: zapatas, trabes de liga, contratrabes, plantillas…; se suma el volumen de cada uno.
@@ -383,7 +391,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 
 Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.
 
-### Base de datos (migraciones 0001–0006)
+### Base de datos (migraciones 0001–0007)
 
 | Migración | Contenido |
 |---|---|
@@ -393,6 +401,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 | 0004 | `proyectos.terreno`, `paquete_conceptos.analisis_tipo`, tabla `generadores` (datos capturados, cantidad, unidad, fórmula); un paquete por proyecto. |
 | 0005 | Permite el método `excavacion` en `analisis_tipo`. |
 | 0006 | Permite el método `afine` en `analisis_tipo`. |
+| 0007 | `proyectos.ejes`: ejes del proyecto (verticales, horizontales y origen en el DXF). |
 
 - Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
 - Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { EXCAVACION_BIELVA } from '../dominio/bielva/excavacion'
 import { analizarExcavacion, CRITERIOS_EXCAVACION, ladosDeSobreancho } from '../dominio/excavacion'
+import { delDxf, huellaPorEjes } from '../dominio/ejes'
+import { areaPoligono, leerPoligonosDxf, UNIDADES_DXF } from '../dominio/terreno'
 import { fmt, unidadTexto } from '../dominio/redondeo'
 import * as repo from '../lib/proyectosRepo'
-import { avisoStyle } from '../lib/ui'
+import { avisoStyle, botones } from '../lib/ui'
 import ComoSeGenera from './ComoSeGenera'
 import { Aviso, Boton, BotonIcono, Campo, Entrada, Seccion, Tarjeta } from './ui'
 
@@ -13,7 +15,7 @@ const num = (v) => {
 }
 const texto = (n) => (Number.isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : '')
 
-const RENGLON_VACIO = { elemento: '', eje: '', entre: '', largo: '', ancho: '', profundidad: '', piezas: '1', lados: 2, plantilla: true }
+const RENGLON_VACIO = { elemento: '', eje: '', entre: '', largo: '', ancho: '', profundidad: '', piezas: '1', desfase: '', inicio: '', lados: 2, plantilla: true }
 // Losa de cimentación con talud (CI, CC): ancho total × alto total, sin sobreancho ni plantilla.
 const esLosaConTalud = (elemento) => /^C[IC]-?\d/i.test(elemento.trim())
 const FRANJA_VACIA = { descripcion: '', largo: '', separacion: '', profundidad: '' }
@@ -27,7 +29,7 @@ const aTexto = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, t
  * Volumen = largo × (ancho total + 2·sobreancho) × (desplante + plantilla) × piezas,
  * más las franjas de tierra menores a la separación mínima entre cepas.
  */
-export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir, onGuardado, onVolver, onCapturar }) {
+export default function GeneradorExcavacion({ concepto, proyecto, ejes, puedeEscribir, onGuardado, onVolver, onCapturar }) {
   const [criterios, setCriterios] = useState(aTexto(CRITERIOS_EXCAVACION))
   const [renglones, setRenglones] = useState([{ ...RENGLON_VACIO }])
   const [franjas, setFranjas] = useState([])
@@ -61,7 +63,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
   const entrada = useMemo(
     () => ({
       criterios: { sobreancho: num(criterios.sobreancho) || 0, plantilla: num(criterios.plantilla) || 0, separacionMinima: num(criterios.separacionMinima) || 0 },
-      renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), mlElemento: num(r.mlElemento), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1, lados: Number(r.lados), plantilla: r.plantilla !== false, huella: r.huella || null })),
+      renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), mlElemento: num(r.mlElemento), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1, desfase: num(r.desfase), inicio: num(r.inicio), lados: Number(r.lados), plantilla: r.plantilla !== false, huella: r.huella || null })),
       separaciones: franjas.map((s) => ({ descripcion: s.descripcion.trim(), largo: num(s.largo), separacion: num(s.separacion), profundidad: num(s.profundidad) })),
       superficies: superficies.map((s) => ({ descripcion: s.descripcion.trim(), area: num(s.area), espesor: num(s.espesor), huella: s.huella || null })),
     }),
@@ -126,6 +128,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
     <Entrada value={valor} disabled={!puedeEscribir} onChange={(e) => onChange(e.target.value)} style={{ padding: '6px 8px', fontSize: 13 }} {...props} />
   )
   const numero = (valor, onChange, w = 76) => inp(valor, onChange, { type: 'number', step: '0.01', min: '0', className: 'num', style: { padding: '6px 8px', fontSize: 13, width: w } })
+  const conSigno = (valor, onChange) => inp(valor, onChange, { type: 'number', step: '0.01', className: 'num', style: { padding: '6px 8px', fontSize: 13, width: 70 } })
 
   return (
     <div className="grid gap-4">
@@ -179,7 +182,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[960px] text-sm">
+              <table className="w-full min-w-[1120px] text-sm">
                 <thead>
                   <tr className="text-left text-cc-tenue" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.6px' }}>
                     <th className={celda}>Elemento</th>
@@ -189,9 +192,12 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                     <th className={celda}>Ancho total</th>
                     <th className={celda}>Alto</th>
                     <th className={celda}>Pzas</th>
+                    <th className={celda} title="Del eje al centro de la cepa, + hacia donde crecen las coordenadas">Desfase</th>
+                    <th className={celda} title="Dónde arranca, desde el primer eje de «entre»; vacío = centrado entre los ejes">Inicio</th>
                     <th className={celda}>Sobreancho</th>
                     <th className={celda} title="Plantilla bajo el elemento">+Plant</th>
                     <th className={`${celda} text-right`}>m³</th>
+                    <th className={celda}>3D</th>
                     <th className={celda}></th>
                   </tr>
                 </thead>
@@ -207,6 +213,8 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                         <td className={celda}>{numero(x.ancho, (v) => cambiaRenglon(i, 'ancho', v))}</td>
                         <td className={celda}>{numero(x.profundidad, (v) => cambiaRenglon(i, 'profundidad', v))}</td>
                         <td className={celda}>{numero(x.piezas, (v) => cambiaRenglon(i, 'piezas', v), 56)}</td>
+                        <td className={celda}>{conSigno(x.desfase, (v) => cambiaRenglon(i, 'desfase', v))}</td>
+                        <td className={celda}>{conSigno(x.inicio, (v) => cambiaRenglon(i, 'inicio', v))}</td>
                         <td className={celda}>
                           <select
                             value={x.lados}
@@ -224,6 +232,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                           <input type="checkbox" checked={x.plantilla !== false} disabled={!puedeEscribir} onChange={(e) => cambiaRenglon(i, 'plantilla', e.target.checked)} />
                         </td>
                         <td className={`${celda} num text-right`} style={{ color: f?.valido ? 'var(--cc-texto)' : 'var(--cc-tenue)' }}>{f?.valido ? fmt(f.volumen) : '—'}</td>
+                        <td className={`${celda} text-center`}>{f?.valido && <Ubicado f={f} ejes={ejes} />}</td>
                         <td className={celda}>
                           {puedeEscribir && (
                             <BotonIcono peligro title="Quitar renglón" onClick={() => setRenglones((xs) => (xs.length > 1 ? xs.filter((_, j) => j !== i) : [{ ...RENGLON_VACIO }]))}>
@@ -255,9 +264,10 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                 <p className="text-xs text-cc-tenue">Firmes y otros elementos que cubren un área: área × espesor, sin sobreancho ni plantilla.</p>
               </div>
               {puedeEscribir && (
-                <Boton chico className="ml-auto" onClick={() => setSuperficies((xs) => [...xs, { ...SUPERFICIE_VACIA }])}>
-                  + Superficie
-                </Boton>
+                <div className="ml-auto flex flex-wrap gap-2">
+                  <ImportarSuperficies ejes={ejes} onAgregar={(nuevas) => setSuperficies((xs) => [...xs.filter((x) => x.descripcion || x.area), ...nuevas])} />
+                  <Boton chico onClick={() => setSuperficies((xs) => [...xs, { ...SUPERFICIE_VACIA }])}>+ Superficie</Boton>
+                </div>
               )}
             </div>
             {superficies.length ? (
@@ -426,6 +436,133 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
             </div>
           </Tarjeta>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/** Si el renglón quedó ubicado en el 3D (por ejes o por su huella) o qué le falta. */
+function Ubicado({ f, ejes }) {
+  const r = huellaPorEjes(f, ejes, f.anchoCepa)
+  const ok = !!r.huella || f.huella?.length > 0
+  const titulo = r.huella ? `Se dibuja por ejes: ${r.nota}` : f.huella?.length ? 'Se dibuja con su huella guardada' : `No se dibuja: ${r.falta}`
+  return (
+    <span title={titulo} style={{ color: ok ? '#3ddba6' : '#f0b866', cursor: 'help' }}>
+      {ok ? '●' : '○'}
+    </span>
+  )
+}
+
+/** ¿El punto cae dentro del polígono? (rayo horizontal) */
+const dentro = ([x, y], pol) => {
+  let c = false
+  for (let i = 0, j = pol.length - 1; i < pol.length; j = i++) {
+    const [xi, yi] = pol[i]
+    const [xj, yj] = pol[j]
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c
+  }
+  return c
+}
+
+/**
+ * Importa superficies (losas, firmes…) de las polilíneas cerradas de un DXF, ya en coordenadas
+ * del proyecto (con el origen de los ejes). Los polígonos que caen dentro de otro elegido se
+ * pueden restar como huecos: así una banda de losa es su contorno menos la parte delgada.
+ */
+function ImportarSuperficies({ ejes, onAgregar }) {
+  const [unidad, setUnidad] = useState('m')
+  const [lista, setLista] = useState(null)
+  const [capa, setCapa] = useState('')
+  const [elegidos, setElegidos] = useState(new Set())
+  const [espesor, setEspesor] = useState('0.1')
+  const [restar, setRestar] = useState(true)
+  const [error, setError] = useState(null)
+
+  async function leer(e) {
+    const archivo = e.target.files?.[0]
+    e.target.value = ''
+    if (!archivo) return
+    setError(null)
+    try {
+      const pols = leerPoligonosDxf(await archivo.text(), UNIDADES_DXF[unidad]).map((p, i) => ({ ...p, id: i, vertices: p.vertices.map((v) => delDxf(ejes, v)) }))
+      if (!pols.length) throw new Error('El DXF no tiene polilíneas cerradas.')
+      setLista({ archivo: archivo.name, pols })
+      setCapa(pols[0].capa)
+      setElegidos(new Set())
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  if (!lista)
+    return (
+      <span className="flex items-center gap-1.5">
+        <label className="inline-flex cursor-pointer items-center" style={{ ...botones.sec, padding: '4px 10px', fontSize: 12 }}>
+          Importar del DXF
+          <input type="file" accept=".dxf" className="hidden" onChange={leer} />
+        </label>
+        <select value={unidad} onChange={(e) => setUnidad(e.target.value)} title="Unidades del dibujo">
+          {Object.keys(UNIDADES_DXF).map((u) => (
+            <option key={u} value={u}>{u}</option>
+          ))}
+        </select>
+        {!ejes?.origen_dxf && <span className="text-[11px]" style={{ color: '#f0b866' }} title="Sin ejes del proyecto, los polígonos quedan en las coordenadas del dibujo">sin ejes</span>}
+        {error && <span className="text-[11px]" style={{ color: '#f87171' }}>{error}</span>}
+      </span>
+    )
+
+  const capas = [...new Set(lista.pols.map((p) => p.capa))]
+  const deCapa = lista.pols.filter((p) => p.capa === capa)
+  const alternar = (id) =>
+    setElegidos((s) => {
+      const n = new Set(s)
+      n.has(id) ? n.delete(id) : n.add(id)
+      return n
+    })
+
+  function agregar() {
+    const sel = lista.pols.filter((p) => elegidos.has(p.id))
+    const nuevas = sel.map((p, k) => {
+      const huecos = restar ? sel.filter((q) => q !== p && q.area < p.area && q.vertices.every((v) => dentro(v, p.vertices))) : []
+      const area = p.area - huecos.reduce((s, q) => s + areaPoligono(q.vertices).area, 0)
+      return {
+        descripcion: `${p.capa} ${k + 1}${huecos.length ? ` · menos ${huecos.length} hueco(s)` : ''}`,
+        area: String(Math.round(area * 10000) / 10000),
+        espesor,
+        huella: [[p.vertices, ...huecos.map((q) => q.vertices)]],
+      }
+    })
+    onAgregar(nuevas)
+    setLista(null)
+  }
+
+  return (
+    <div className="grid w-full gap-2 rounded-xl p-3 text-sm" style={{ border: '1px solid var(--cc-borde)' }}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-cc-suave">{lista.archivo} · capa</span>
+        <select value={capa} onChange={(e) => setCapa(e.target.value)}>
+          {capas.map((c) => (
+            <option key={c} value={c}>{c} ({lista.pols.filter((p) => p.capa === c).length})</option>
+          ))}
+        </select>
+        <span className="text-xs text-cc-suave">espesor a excavar</span>
+        <Entrada value={espesor} onChange={(e) => setEspesor(e.target.value)} type="number" step="0.01" min="0" className="num" style={{ padding: '4px 8px', fontSize: 13, width: 70 }} />
+        <label className="flex items-center gap-1 text-xs text-cc-suave">
+          <input type="checkbox" checked={restar} onChange={(e) => setRestar(e.target.checked)} />
+          restar los que quedan dentro (huecos)
+        </label>
+      </div>
+      <div className="grid max-h-48 gap-1 overflow-auto">
+        {deCapa.map((p) => (
+          <label key={p.id} className="num flex items-center gap-2 text-xs">
+            <input type="checkbox" checked={elegidos.has(p.id)} onChange={() => alternar(p.id)} />
+            {fmt(p.area)} m² · {p.nVertices} vértices · x {fmt(Math.min(...p.vertices.map((v) => v[0])))} y {fmt(Math.min(...p.vertices.map((v) => v[1])))}
+          </label>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <Boton chico variante="pri" disabled={!elegidos.size} onClick={agregar}>Agregar {elegidos.size || ''}</Boton>
+        <Boton chico onClick={() => setLista(null)}>Cancelar</Boton>
       </div>
     </div>
   )

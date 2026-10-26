@@ -29,6 +29,8 @@ export function cepasDeExcavacion(datosExcavacion) {
       ancho: r4(f.anchoCepa),
       profundidad: r4(f.altoCepa),
       piezas: f.piezas,
+      desfase: Number.isFinite(f.desfase) ? f.desfase : null,
+      inicio: Number.isFinite(f.inicio) ? f.inicio : null,
       incluir: true,
     }))
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { analizarAfine } from '../dominio/afine'
+import { huellaPorEjes } from '../dominio/ejes'
 import { analizarExcavacion } from '../dominio/excavacion'
 import { fmt } from '../dominio/redondeo'
 import { Tarjeta, Seccion } from './ui'
@@ -27,8 +28,9 @@ const NOMBRE_TIPO = {
  * Piezas de excavación que se pueden dibujar: cada renglón o superficie que trae «huella»
  * en planta, con la profundidad que le toca según el análisis guardado.
  */
-function piezasDeExcavacion(generadores = []) {
+function piezasDeExcavacion(generadores = [], ejes) {
   const piezas = []
+  const huellas = new Map() // por elemento|eje|entre, para ubicar el afine si no trae desfase
   let sinUbicar = 0
   let volumen = 0
   for (const g of generadores) {
@@ -37,10 +39,13 @@ function piezasDeExcavacion(generadores = []) {
     volumen += r.total
     for (const f of r.filas) {
       if (!f.valido) continue
-      if (!f.huella?.length) sinUbicar++
-      else
+      // la forma sale de los ejes del proyecto y de los datos del renglón; si no se puede, de su huella guardada
+      const huella = huellaPorEjes(f, ejes, f.anchoCepa).huella ?? (f.huella?.length ? f.huella : null)
+      if (!huella) sinUbicar++
+      else {
+        huellas.set(`${f.elemento}|${f.eje}|${f.entre}`, huella)
         piezas.push({
-          huella: f.huella,
+          huella,
           profundidad: f.altoCepa,
           tipo: tipoDeRenglon(f),
           nombre: f.elemento,
@@ -49,6 +54,7 @@ function piezasDeExcavacion(generadores = []) {
           volumen: f.volumen,
           concepto: g.concepto?.clave,
         })
+      }
     }
     for (const s of r.areas) {
       if (!s.valido) continue
@@ -68,19 +74,14 @@ function piezasDeExcavacion(generadores = []) {
       }
     }
   }
-  return { piezas, sinUbicar, volumen }
+  return { piezas, sinUbicar, volumen, huellas }
 }
 
 /**
- * Superficies de afine: el fondo y las dos paredes de cada cepa que entra. La ubicación sale
- * de la huella del renglón de excavación con el mismo elemento, eje y entre ejes.
+ * Superficies de afine: el fondo y las dos paredes de cada cepa que entra. Se ubican por ejes con
+ * los ml del elemento; si la cepa no trae desfase, toman la forma de su renglón de excavación.
  */
-function piezasDeAfine(generadores = []) {
-  const huellas = new Map()
-  for (const g of generadores) {
-    if (g.tipo !== 'excavacion') continue
-    for (const r of g.datos?.renglones ?? []) if (r.huella?.length) huellas.set(`${r.elemento}|${r.eje}|${r.entre}`, r.huella)
-  }
+function piezasDeAfine(generadores = [], ejes, huellas = new Map()) {
   const piezas = []
   let sinUbicar = 0
   let area = 0
@@ -90,7 +91,8 @@ function piezasDeAfine(generadores = []) {
     area += r.total
     for (const f of r.filas) {
       if (!f.valido || f.incluir === false) continue
-      const huella = huellas.get(`${f.elemento}|${f.eje}|${f.entre}`)
+      const porEjes = Number.isFinite(f.desfase) ? huellaPorEjes({ ...f, largo: f.ml }, ejes, f.ancho).huella : null
+      const huella = porEjes ?? huellas.get(`${f.elemento}|${f.eje}|${f.entre}`)
       if (!huella) sinUbicar++
       else
         piezas.push({
@@ -106,6 +108,30 @@ function piezasDeAfine(generadores = []) {
     }
   }
   return { piezas, sinUbicar, area }
+}
+
+/** Nombre de un eje como letrero que siempre mira a la cámara. */
+function etiqueta(texto, x, z) {
+  const lienzo = document.createElement('canvas')
+  lienzo.width = 128
+  lienzo.height = 64
+  const c = lienzo.getContext('2d')
+  c.fillStyle = 'rgba(232,93,117,0.92)'
+  c.beginPath()
+  c.roundRect(4, 8, 120, 48, 22)
+  c.fill()
+  c.fillStyle = '#fff'
+  c.font = 'bold 30px sans-serif'
+  c.textAlign = 'center'
+  c.textBaseline = 'middle'
+  c.fillText(texto, 64, 33)
+  const tex = new THREE.CanvasTexture(lienzo)
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false }))
+  s.scale.set(1.0, 0.5, 1)
+  s.position.set(x, 0.3, z)
+  s.renderOrder = 10
+  s.userData.textura = tex
+  return s
 }
 
 /** Las dos paredes largas de un contorno (las que se afinan como taludes). */
@@ -129,13 +155,13 @@ function forma([contorno, ...huecos]) {
  * Muestra el terreno (polígono en metros) y, debajo del nivel 0, la excavación:
  * cada pieza con su huella en planta y su profundidad. Colores planos y sin texturas.
  */
-export default function Visor3D({ terreno, generadores, altura = 360 }) {
+export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
   const caja = useRef(null)
   const motor = useRef(null) // escena, cámara y lo dibujado; se crea una vez y se reusa
-  const [ver, setVer] = useState({ terreno: true, excavacion: true, afine: true })
+  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true })
   const [sel, setSel] = useState(null) // clave de la pieza elegida con un clic
-  const exc = useMemo(() => piezasDeExcavacion(generadores), [generadores])
-  const afi = useMemo(() => piezasDeAfine(generadores), [generadores])
+  const exc = useMemo(() => piezasDeExcavacion(generadores, ejes), [generadores, ejes])
+  const afi = useMemo(() => piezasDeAfine(generadores, ejes, exc.huellas), [generadores, ejes, exc])
   // lo que se dibuja; la clave identifica la pieza aunque se vuelva a calcular al capturar
   const todas = useMemo(() => {
     const vistas = {}
@@ -244,6 +270,7 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
     const { contenido, escena, camara, controles } = m
     for (const o of [...contenido.children]) {
       contenido.remove(o)
+      o.userData.textura?.dispose()
       o.geometry?.dispose?.()
       if (o.material) [].concat(o.material).forEach((x) => x.dispose())
     }
@@ -264,6 +291,24 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
       const geo = extruir(forma([v]), 0.04)
       contenido.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0x1d9e75, transparent: true, opacity: hayExcavacion ? 0.18 : 0.55, depthWrite: !hayExcavacion })))
       contenido.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x3ddba6 })))
+    }
+    // ejes del proyecto: líneas a ras de terreno con su nombre en las puntas
+    const vs = ejes?.verticales ?? []
+    const hs = ejes?.horizontales ?? []
+    if (ver.ejes && (vs.length || hs.length)) {
+      const xs = vs.map((e) => e.pos)
+      const ys = hs.map((e) => e.pos)
+      const [x1, x2] = xs.length ? [Math.min(...xs), Math.max(...xs)] : [0, 1]
+      const [y1, y2] = ys.length ? [Math.min(...ys), Math.max(...ys)] : [0, 1]
+      const sobra = 1.2
+      const puntos = []
+      for (const x of xs) puntos.push(new THREE.Vector3(x, 0.05, -(y1 - sobra)), new THREE.Vector3(x, 0.05, -(y2 + sobra)))
+      for (const y of ys) puntos.push(new THREE.Vector3(x1 - sobra, 0.05, -y), new THREE.Vector3(x2 + sobra, 0.05, -y))
+      const lineas = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(puntos), new THREE.LineDashedMaterial({ color: 0xe85d75, dashSize: 0.4, gapSize: 0.25 }))
+      lineas.computeLineDistances()
+      contenido.add(lineas)
+      for (const e of vs) contenido.add(etiqueta(e.nombre, e.pos, -(y1 - sobra - 0.5)))
+      for (const e of hs) contenido.add(etiqueta(e.nombre, x1 - sobra - 0.6, -e.pos))
     }
     // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
     const opacidad = (tipo) => (tipo === 'afine' ? 0.9 : conAfine ? 0.25 : 0.85)
@@ -340,7 +385,7 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
     camara.position.set(centro.x + tam * 0.9, tam * 0.8, centro.z + tam * 1.2)
     controles.target.copy(centro)
     controles.update()
-  }, [terreno, todas, ver.terreno])
+  }, [terreno, ejes, todas, ver.terreno, ver.ejes])
 
   const elegida = sel != null ? todas.find((p) => p.clave === sel) : null
 
@@ -362,6 +407,7 @@ export default function Visor3D({ terreno, generadores, altura = 360 }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3" style={{ borderBottom: '1px solid var(--cc-borde)' }}>
         <Seccion>Modelo 3D · se arma con lo que vas analizando</Seccion>
         {terreno?.vertices?.length > 0 && casilla('terreno', 'Terreno')}
+        {(ejes?.verticales?.length > 0 || ejes?.horizontales?.length > 0) && casilla('ejes', 'Ejes')}
         {exc.volumen > 0 && casilla('excavacion', `Excavación ${fmt(exc.volumen)} m³`)}
         {afi.area > 0 && casilla('afine', `Afine ${fmt(afi.area)} m²`)}
         {terreno?.area > 0 && (
