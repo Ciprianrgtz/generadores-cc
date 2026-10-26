@@ -91,6 +91,6 @@ export async function generadoresDelPaquete(paqueteId) {
   const conceptos = ok(await supabase.from('paquete_conceptos').select('id, clave, descripcion').eq('paquete_id', paqueteId))
   const ids = conceptos.map((c) => c.id)
   if (!ids.length) return []
-  const filas = ok(await supabase.from('generadores').select('paquete_concepto_id, tipo, datos, cantidad, unidad').in('paquete_concepto_id', ids))
+  const filas = ok(await supabase.from('generadores').select('paquete_concepto_id, tipo, datos, cantidad, unidad, actualizado_en').in('paquete_concepto_id', ids))
   return filas.map((g) => ({ ...g, concepto: conceptos.find((c) => c.id === g.paquete_concepto_id) }))
 }

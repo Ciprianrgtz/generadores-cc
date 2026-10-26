@@ -5,6 +5,7 @@
  *   · Zapatas ZC en colindancia: ancho 0.80 + sobreancho de 10 cm solo del lado de adentro,
  *     alto 0.80 (NDZC −0.80) + plantilla 0.05. La esquina de X-08 con Y-04 se cuenta una vez:
  *     el tramo sobre X-08 va de la cepa de Y-04 hacia adentro (1.66 en lugar de 2.56).
+ *     «mlElemento» guarda los ml del plano (2.56), que son los que usa el afine.
  *   · TL-1 de 25×25: (0.25 + 2×0.10) × (0.25 + 0.05). El tramo sobre X-05 arranca en la cepa
  *     de la TL-1 de Y-02.
  *   · Losas de cimentación CI/CC: las bandas con talud se excavan a 0.25 (ancho total, sin
@@ -43,8 +44,8 @@ const DELGADA = {
 }
 const LOSA = { L1: rect(0.18, 3.54, 4.78, 10.42), L2: rect(0.18, 4.62, 15.02, 19.96), L3: rect(3.54, 7.18, 5.78, 15.2) }
 
-const zc = (elemento, eje, entre, largo, huella) => ({ elemento, eje, entre, largo, ancho: 0.8, profundidad: 0.8, piezas: 1, lados: 1, plantilla: true, huella: [[huella]] })
-const tl = (eje, entre, largo, huella) => ({ elemento: 'TL-1', eje, entre, largo, ancho: 0.25, profundidad: 0.25, piezas: 1, lados: 2, plantilla: true, huella: [[huella]] })
+const zc = (elemento, eje, entre, largo, huella, mlElemento = largo) => ({ elemento, eje, entre, largo, mlElemento, ancho: 0.8, profundidad: 0.8, piezas: 1, lados: 1, plantilla: true, huella: [[huella]] })
+const tl = (eje, entre, largo, huella) => ({ elemento: 'TL-1', eje, entre, largo, mlElemento: largo, ancho: 0.25, profundidad: 0.25, piezas: 1, lados: 2, plantilla: true, huella: [[huella]] })
 const banda = (k, descripcion, area) => ({ descripcion, area, espesor: 0.25, huella: [[LOSA[k], ...DELGADA[k]]] })
 const delgada = (k, descripcion, area) => ({ descripcion, area, espesor: 0.1, huella: DELGADA[k].map((anillo) => [anillo]) })
 
@@ -55,7 +56,7 @@ export const EXCAVACION_BIELVA = {
     zc('ZC-01', 'Y-04', 'X-00 a X-01', 4.97, rect(6.28, 7.18, -0.04, 4.93)),
     zc('ZC-02', 'Y-04', 'X-01 a X-02', 0.85, rect(6.28, 7.18, 4.93, 5.78)),
     zc('ZC-01', 'Y-04', 'X-06 a X-08', 4.76, rect(6.28, 7.18, 15.2, 19.96)),
-    zc('ZC-01', 'X-08', 'Y-03 a Y-04 (sin esquina)', 1.66, rect(4.62, 6.28, 19.06, 19.96)),
+    zc('ZC-01', 'X-08', 'Y-03 a Y-04 (sin esquina)', 1.66, rect(4.62, 6.28, 19.06, 19.96), 2.56),
     tl('Y-02', 'X-05 a X-06', 5.08, rect(3.19, 3.64, 10.12, 15.2)),
     tl('X-05', 'Y-02 a Y-04', 3.54, rect(3.64, 7.18, 10.045, 10.495)),
   ],

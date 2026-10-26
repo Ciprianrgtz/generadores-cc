@@ -4,6 +4,7 @@ import { leerCatalogoNeodata } from '../dominio/importarNeodata'
 import * as repo from '../lib/proyectosRepo'
 import * as paquetes from '../lib/paquetesRepo'
 import { botones } from '../lib/ui'
+import GeneradorAfine from './GeneradorAfine'
 import GeneradorExcavacion from './GeneradorExcavacion'
 import GeneradorTerreno from './GeneradorTerreno'
 import PaqueteDetalle from './PaqueteDetalle'
@@ -63,6 +64,14 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
             <GeneradorExcavacion
               concepto={analisis}
               proyecto={proy}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={() => setAnalisis(null)}
+            />
+          ) : analisis?.analisis_tipo === 'afine' ? (
+            <GeneradorAfine
+              concepto={analisis}
+              generadores={generadores}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
               onVolver={() => setAnalisis(null)}

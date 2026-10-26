@@ -53,9 +53,31 @@ export const METODOS = {
     ],
     criterios: 'Criterios editables en el análisis: sobreancho por lado (0.10 m), plantilla (0.05 m) y separación mínima de tierra entre cepas (0.35 m).',
   },
+  afine: {
+    id: 'afine',
+    nombre: 'Afine de fondo y taludes',
+    aplica: 'Afine y compactación de fondo y taludes de la excavación (CIM002).',
+    unidad: 'm²',
+    pasos: [
+      'Las cepas salen del análisis de excavación guardado: no se vuelven a capturar medidas.',
+      'Ancho de la cepa = ancho del elemento + sobreancho; profundidad de la cepa = alto + plantilla (como en la excavación).',
+      'Área de cada cepa = ml del elemento × (ancho de la cepa + 2 × profundidad de la cepa): el fondo y las dos paredes, también la del lindero.',
+      'Se usan los ml del elemento del plano: en una esquina cuenta en los dos tramos.',
+      'Las losas de cimentación y el firme no entran: su afine es otro concepto (afine para recibir firme).',
+      'Se compara con la cantidad que trae Neodata.',
+    ],
+    criterios: 'Se puede quitar una cepa o corregir sus ml; si la excavación cambia, se vuelven a tomar las cepas.',
+  },
 }
 
 export const LISTA_METODOS = Object.values(METODOS)
+
+/** Resumen en una línea de un análisis de afine guardado. */
+export function origenAfine(datos) {
+  if (!datos?.cepas) return null
+  const n = datos.cepas.filter((c) => c.incluir !== false).length
+  return `${n} cepas${datos.origen?.concepto ? ` de la excavación ${datos.origen.concepto}` : ''}`
+}
 
 /** Resumen en una línea de un análisis de excavación guardado. */
 export function origenExcavacion(datos) {

@@ -351,6 +351,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `terreno` — Superficie del terreno | Limpia y despalme, trazo y nivelación | Rectángulo, vértices o polilínea cerrada del DXF en la capa «terreno» (fórmula de la lazada). El terreno se captura una vez en el proyecto (`proyectos.terreno`), lo reusan todos los conceptos y se dibuja en el 3D. |
 | `zapata_corrida` — Acero de la parrilla | Acero de ZC-01, ZC-02… | Ficha por 1.00 ml (sección 13, método CIM05B), con versiones y flujo Borrador → Revisado → Aprobado y esquema interactivo en planta e isométrico. |
 | `excavacion` — Excavación por elementos | Excavación de cepas (CIM001) | Renglones por tramo de cada elemento que toca el suelo (eje, entre, largo, ancho total, desplante, piezas). Reglas abajo. |
+| `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
 
 ### Reglas de excavación (explicadas por Ciprian, 26-oct-2026)
 
@@ -371,9 +372,16 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 - Cuando hay losa de cimentación, su parte de 10 cm hace de firme: en el presupuesto el firme de concreto se sustituye por el sistema de losa.
 - El **firme de concreto de 10 cm** va en toda el área interior de la casa y también se excava, por superficie: `Volumen = área × espesor`, sin sobreancho ni plantilla (sección «Superficies» del generador).
 
+### Reglas de afine (Ciprian, 26-oct-2026)
+
+- Se afina el **fondo y las dos paredes (taludes)** de cada cepa: `ml × (ancho de la cepa + 2 × profundidad de la cepa)`, también la pared del lindero en colindancia.
+- Se usan los **ml del elemento del plano** (en una esquina cuenta en los dos tramos; en la excavación se guardan en `mlElemento`).
+- Las losas y el firme no entran: su afine es otro concepto (EST13B', afine para recibir firme).
+- Bielva: zapatas 22.56 × (0.90 + 2×0.85) = **58.66** (Neodata 58.63, que solo contó zapatas); con la TL-1 (8.62 × (0.45 + 2×0.30) = 9.05) da **67.71**.
+
 Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.
 
-### Base de datos (migraciones 0001–0005)
+### Base de datos (migraciones 0001–0006)
 
 | Migración | Contenido |
 |---|---|
@@ -382,6 +390,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 | 0003 | Orden de conceptos en el catálogo; `paquetes`, `paquete_partidas`, `paquete_conceptos`; funciones `crear_paquete`, `mover_paquete_concepto`, `mover_paquete_partida`. |
 | 0004 | `proyectos.terreno`, `paquete_conceptos.analisis_tipo`, tabla `generadores` (datos capturados, cantidad, unidad, fórmula); un paquete por proyecto. |
 | 0005 | Permite el método `excavacion` en `analisis_tipo`. |
+| 0006 | Permite el método `afine` en `analisis_tipo`. |
 
 - Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
 - Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).

@@ -31,6 +31,7 @@ Las migraciones están en `supabase/migrations/` y se ejecutan en orden en Supab
 | `0003_catalogo_y_paquetes.sql` | Orden del catálogo, paquetes de generadores por proyecto y funciones para crearlos y reacomodarlos |
 | `0004_proyecto_primero_y_generadores.sql` | Terreno del proyecto, método de análisis por concepto y tabla de generadores |
 | `0005_metodo_excavacion.sql` | Habilita el método de excavación por elementos |
+| `0006_metodo_afine.sql` | Habilita el método de afine de fondo y taludes |
 
 ## Usuarios
 

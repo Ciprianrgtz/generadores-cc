@@ -61,7 +61,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
   const entrada = useMemo(
     () => ({
       criterios: { sobreancho: num(criterios.sobreancho) || 0, plantilla: num(criterios.plantilla) || 0, separacionMinima: num(criterios.separacionMinima) || 0 },
-      renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1, lados: Number(r.lados), plantilla: r.plantilla !== false, huella: r.huella || null })),
+      renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), mlElemento: num(r.mlElemento), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1, lados: Number(r.lados), plantilla: r.plantilla !== false, huella: r.huella || null })),
       separaciones: franjas.map((s) => ({ descripcion: s.descripcion.trim(), largo: num(s.largo), separacion: num(s.separacion), profundidad: num(s.profundidad) })),
       superficies: superficies.map((s) => ({ descripcion: s.descripcion.trim(), area: num(s.area), espesor: num(s.espesor), huella: s.huella || null })),
     }),
