@@ -12,7 +12,9 @@ const num = (v) => {
 }
 const texto = (n) => (Number.isFinite(n) ? String(Math.round(n * 1e6) / 1e6) : '')
 
-const RENGLON_VACIO = { elemento: '', eje: '', entre: '', largo: '', ancho: '', profundidad: '', piezas: '1' }
+const RENGLON_VACIO = { elemento: '', eje: '', entre: '', largo: '', ancho: '', profundidad: '', piezas: '1', sobreancho: true, plantilla: true }
+// Losa de cimentación con talud (CI, CC): ancho total × alto total, sin sobreancho ni plantilla.
+const esLosaConTalud = (elemento) => /^C[IC]-?\d/i.test(elemento.trim())
 const FRANJA_VACIA = { descripcion: '', largo: '', separacion: '', profundidad: '' }
 const SUPERFICIE_VACIA = { descripcion: '', area: '', espesor: '' }
 const FIRME = { descripcion: 'Firme de concreto · área interior de la casa', area: '', espesor: '0.1' }
@@ -26,7 +28,7 @@ const ZC_BIELVA = [
   ['ZC-02', 'Y-04', 'X-01 a X-02', 0.85],
   ['ZC-01', 'Y-04', 'X-06 a X-08', 4.76],
   ['ZC-01', 'X-08', 'Y-03 a Y-04', 2.56],
-].map(([elemento, eje, entre, largo]) => ({ elemento, eje, entre, largo: texto(largo), ancho: '0.8', profundidad: '0.8', piezas: '1' }))
+].map(([elemento, eje, entre, largo]) => ({ ...RENGLON_VACIO, elemento, eje, entre, largo: texto(largo), ancho: '0.8', profundidad: '0.8' }))
 
 const aTexto = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === 'number' ? texto(v) : (v ?? '')]))
 
@@ -69,7 +71,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
   const entrada = useMemo(
     () => ({
       criterios: { sobreancho: num(criterios.sobreancho) || 0, plantilla: num(criterios.plantilla) || 0, separacionMinima: num(criterios.separacionMinima) || 0 },
-      renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1 })),
+      renglones: renglones.map((r) => ({ elemento: r.elemento.trim(), eje: r.eje.trim(), entre: r.entre.trim(), largo: num(r.largo), ancho: num(r.ancho), profundidad: num(r.profundidad), piezas: num(r.piezas) || 1, sobreancho: r.sobreancho !== false, plantilla: r.plantilla !== false })),
       separaciones: franjas.map((s) => ({ descripcion: s.descripcion.trim(), largo: num(s.largo), separacion: num(s.separacion), profundidad: num(s.profundidad) })),
       superficies: superficies.map((s) => ({ descripcion: s.descripcion.trim(), area: num(s.area), espesor: num(s.espesor) })),
     }),
@@ -90,7 +92,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
     setOcupado(true)
     setMensaje(null)
     try {
-      const limpio = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number.isFinite(v) ? v : typeof v === 'string' ? v : null]))
+      const limpio = (o) => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, Number.isFinite(v) || typeof v === 'string' || typeof v === 'boolean' ? v : null]))
       const datos = {
         criterios: entrada.criterios,
         renglones: entrada.renglones.filter((x) => x.largo || x.ancho || x.profundidad || x.elemento).map(limpio),
@@ -176,7 +178,7 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[860px] text-sm">
+              <table className="w-full min-w-[960px] text-sm">
                 <thead>
                   <tr className="text-left text-cc-tenue" style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '.6px' }}>
                     <th className={celda}>Elemento</th>
@@ -184,8 +186,10 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                     <th className={celda}>Entre</th>
                     <th className={celda}>Largo</th>
                     <th className={celda}>Ancho total</th>
-                    <th className={celda}>Desplante</th>
+                    <th className={celda}>Alto</th>
                     <th className={celda}>Pzas</th>
+                    <th className={celda} title="Sobreancho por lado">+Sobre</th>
+                    <th className={celda} title="Plantilla bajo el elemento">+Plant</th>
                     <th className={`${celda} text-right`}>m³</th>
                     <th className={celda}></th>
                   </tr>
@@ -195,13 +199,19 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                     const f = r.filas[i]
                     return (
                       <tr key={i} style={{ borderTop: '1px solid var(--cc-borde)' }} title={f?.valido ? f.formula : 'Faltan largo, ancho o desplante'}>
-                        <td className={celda}>{inp(x.elemento, (v) => cambiaRenglon(i, 'elemento', v), { placeholder: 'ZC-01', className: 'num', style: { padding: '6px 8px', fontSize: 13, width: 84 }, list: 'tipos-elemento' })}</td>
+                        <td className={celda}>{inp(x.elemento, (v) => setRenglones((xs) => xs.map((y, j) => (j !== i ? y : esLosaConTalud(v) !== esLosaConTalud(y.elemento) ? { ...y, elemento: v, sobreancho: !esLosaConTalud(v), plantilla: !esLosaConTalud(v) } : { ...y, elemento: v }))), { placeholder: 'ZC-01', className: 'num', style: { padding: '6px 8px', fontSize: 13, width: 84 }, list: 'tipos-elemento' })}</td>
                         <td className={celda}>{inp(x.eje, (v) => cambiaRenglon(i, 'eje', v), { placeholder: 'Y-00', className: 'num', style: { padding: '6px 8px', fontSize: 13, width: 70 } })}</td>
                         <td className={celda}>{inp(x.entre, (v) => cambiaRenglon(i, 'entre', v), { placeholder: 'X-00 a X-01', className: 'num', style: { padding: '6px 8px', fontSize: 13, width: 110 } })}</td>
                         <td className={celda}>{numero(x.largo, (v) => cambiaRenglon(i, 'largo', v))}</td>
                         <td className={celda}>{numero(x.ancho, (v) => cambiaRenglon(i, 'ancho', v))}</td>
                         <td className={celda}>{numero(x.profundidad, (v) => cambiaRenglon(i, 'profundidad', v))}</td>
                         <td className={celda}>{numero(x.piezas, (v) => cambiaRenglon(i, 'piezas', v), 56)}</td>
+                        <td className={`${celda} text-center`}>
+                          <input type="checkbox" checked={x.sobreancho !== false} disabled={!puedeEscribir} onChange={(e) => cambiaRenglon(i, 'sobreancho', e.target.checked)} />
+                        </td>
+                        <td className={`${celda} text-center`}>
+                          <input type="checkbox" checked={x.plantilla !== false} disabled={!puedeEscribir} onChange={(e) => cambiaRenglon(i, 'plantilla', e.target.checked)} />
+                        </td>
                         <td className={`${celda} num text-right`} style={{ color: f?.valido ? 'var(--cc-texto)' : 'var(--cc-tenue)' }}>{f?.valido ? fmt(f.volumen) : '—'}</td>
                         <td className={celda}>
                           {puedeEscribir && (
@@ -216,13 +226,13 @@ export default function GeneradorExcavacion({ concepto, proyecto, puedeEscribir,
                 </tbody>
               </table>
               <datalist id="tipos-elemento">
-                {['ZC-01', 'ZC-02', 'CT-1', 'CT-2', 'TL-1', 'DD-1', 'Z-1', 'Plantilla'].map((t) => (
+                {['ZC-01', 'ZC-02', 'CI-1', 'CC-1', 'CT-2', 'TL-1', 'Z-1'].map((t) => (
                   <option key={t} value={t} />
                 ))}
               </datalist>
             </div>
             <p className="px-4 py-2 text-xs text-cc-tenue" style={{ borderTop: '1px solid var(--cc-borde)' }}>
-              Desplante: profundidad desde el terreno natural hasta el fondo del elemento, sin la plantilla (se suma sola). Pasa el cursor sobre un renglón para ver su cálculo.
+              Alto: desde el NTN ±0.00 hasta el fondo del elemento, sin la plantilla (se suma sola). En zapatas suma zapata + muro de enrase + dala de desplante; el ancho es el de la zapata. Las losas con talud (CI, CC) van con su ancho y alto totales, sin sobreancho ni plantilla. Las contratrabes que caen dentro de una zapata o losa no se capturan. Pasa el cursor sobre un renglón para ver su cálculo.
               {incompletos > 0 && <span style={{ color: '#f0b866' }}> · {incompletos} renglón(es) incompleto(s) no suman.</span>}
             </p>
           </Tarjeta>

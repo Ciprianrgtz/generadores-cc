@@ -44,6 +44,8 @@ export const METODOS = {
       'Ancho de la cepa = ancho total + 2 × sobreancho (10 cm por lado, para maniobrar el armado, el colado y los amarres).',
       'Profundidad de la cepa = desplante + plantilla de concreto (5 cm).',
       'Volumen del renglón = largo × ancho de la cepa × profundidad de la cepa × piezas. La excavación es la suma de todos los renglones.',
+      'Zapatas: el alto es la suma de lo que lleva encima hasta el NTN ±0.00 (zapata + muro de enrase + dala de desplante); esos elementos solo dan altura, el ancho es el de la zapata. Las contratrabes que caen dentro de la cepa no se vuelven a excavar.',
+      'Losa de cimentación con talud (CI, CC): ancho total × alto total, sin seguir los taludes y sin sobreancho ni plantilla. Ej. CI-1: 0.25 × (0.40 + 0.10 + 0.10). La CT-2 que va dentro ya queda incluida.',
       'El firme de concreto (10 cm) que va en toda el área interior de la casa se excava por superficie: área × espesor, sin sobreancho ni plantilla.',
       'Si entre dos cepas queda menos de 35 cm de tierra, la franja también se excava: su volumen se suma a la excavación y al relleno.',
       'Se compara con la cantidad que trae Neodata.',

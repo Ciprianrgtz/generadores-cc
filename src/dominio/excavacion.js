@@ -15,6 +15,16 @@ import { dato, fmt, r2 } from './redondeo.js'
  *
  *   Volumen = largo × (ancho + 2·sobreancho) × (profundidad + plantilla) × piezas
  *
+ * La profundidad de una zapata es la suma de las alturas de lo que lleva encima hasta
+ * el NTN ±0.00 (zapata + muro de enrase + dala de desplante): esos elementos solo dan
+ * altura; el ancho sigue siendo el de la zapata. Las contratrabes o trabes de liga que
+ * caen dentro de la cepa de una zapata no se vuelven a excavar.
+ *
+ * Losa de cimentación con talud (CI, CC): se excava el ancho total por el alto total, sin
+ * seguir los taludes y sin sobreancho ni plantilla (lleva nylon). Ej. CI-1: 0.25 × (0.40 +
+ * 0.10 + 0.10). La contratrabe CT-2 que va dentro ya queda incluida. Esos renglones se
+ * marcan con sobreancho = false y plantilla = false.
+ *
  * Los elementos de superficie (el firme de concreto de 10 cm que va en toda el área
  * interior de la casa) se excavan por área, sin sobreancho ni plantilla:
  *   Volumen = área × espesor
@@ -29,15 +39,19 @@ const n = (v) => (Number.isFinite(v) ? v : 0)
 
 export function calcularRenglon(r, c) {
   const piezas = r.piezas > 0 ? r.piezas : 1
-  const ancho = n(r.ancho) + 2 * c.sobreancho
-  const alto = n(r.profundidad) + c.plantilla
+  const conSobreancho = r.sobreancho !== false
+  const conPlantilla = r.plantilla !== false
+  const ancho = n(r.ancho) + (conSobreancho ? 2 * c.sobreancho : 0)
+  const alto = n(r.profundidad) + (conPlantilla ? c.plantilla : 0)
   const volumen = n(r.largo) * ancho * alto * piezas
   const valido = r.largo > 0 && r.ancho > 0 && r.profundidad > 0
+  const tAncho = conSobreancho ? `(${dato(n(r.ancho))} + 2×${dato(c.sobreancho)})` : dato(n(r.ancho))
+  const tAlto = conPlantilla ? `(${dato(n(r.profundidad))} + ${dato(c.plantilla)})` : dato(n(r.profundidad))
   const formula =
-    `${dato(n(r.largo))} × (${dato(n(r.ancho))} + 2×${dato(c.sobreancho)}) × (${dato(n(r.profundidad))} + ${dato(c.plantilla)})` +
+    `${dato(n(r.largo))} × ${tAncho} × ${tAlto}` +
     (piezas !== 1 ? ` × ${dato(piezas)}` : '') +
     ` = ${fmt(volumen)} m³`
-  return { ...r, piezas, anchoCepa: ancho, altoCepa: alto, volumen, valido, formula }
+  return { ...r, piezas, sobreancho: conSobreancho, plantilla: conPlantilla, anchoCepa: ancho, altoCepa: alto, volumen, valido, formula }
 }
 
 export function calcularSeparacion(s, c) {

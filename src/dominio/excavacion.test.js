@@ -47,6 +47,12 @@ describe('Excavación por elementos', () => {
     expect(r.total).toBe(0)
   })
 
+  it('losa con talud CI-1: ancho total × alto total, sin sobreancho ni plantilla', () => {
+    const f = calcularRenglon({ elemento: 'CI-1', largo: 10, ancho: 0.6, profundidad: 0.25, sobreancho: false, plantilla: false }, C)
+    expect(f.volumen).toBeCloseTo(10 * 0.6 * 0.25, 10)
+    expect(f.formula).toBe('10.00 × 0.60 × 0.25 = 1.50 m³')
+  })
+
   it('el firme se excava por área × espesor, sin sobreancho ni plantilla', () => {
     const r = analizarExcavacion({
       renglones: [{ elemento: 'ZC', largo: 1, ancho: 0.8, profundidad: 0.8 }],
