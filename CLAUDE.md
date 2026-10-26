@@ -22,11 +22,12 @@ Un sistema de **cuantificación (generadores de obra) y presupuestos** para casa
 - **Ciprian trabaja en Windows con PowerShell**: dar los comandos uno por uno, **sin encadenar con `&&`**.
 - **Planos**: AutoCAD (DWG/DXF) para 2D y SketchUp para 3D. **No usan ArchiCAD ni Revit.**
 - **Presupuesto actual**: se arma en **Neodata** y se exporta a Excel (reportes "b) Estándar", "j) Totales por Tipo", "a/e) Listado de insumos"). Las cantidades se miden en AutoCAD y se anotan aparte. La mano de obra está en Neodata como **cuadrillas con rendimiento**, con precios ya establecidos.
-- **Librerías sugeridas**:
-  - Plano 2D: Konva.js o SVG.
-  - Cargar PDF: PDF.js.
-  - Leer DXF: dxf-parser.
-  - 3D: three.js / react-three-fiber, con colores planos por material y sin texturas, para que sea ligero.
+- **Librerías en uso**: `dxf-parser` (leer DXF), `read-excel-file` (importar reportes de Neodata), `three` (modelo 3D, colores planos sin texturas), `lucide-react` (íconos), Vitest (pruebas). Pendientes: PDF.js para calcar planos; el plano 2D va en SVG.
+- **Infraestructura**: GitHub `Ciprianrgtz/generadores-cc` (privado), Supabase proyecto `iejofdeskrbulgdwxnmh`, Vercel https://generadores-cc.vercel.app, que publica solo cada push a `main`.
+- **Autor de los commits**: Vercel (plan Hobby) bloquea commits de otro autor ("Blocked"). En cada computadora el repo debe tener `git config user.name "Ciprianrgtz"` y `git config user.email "346068397+Ciprianrgtz@users.noreply.github.com"` (solo local; el global es de la cuenta vieja `Ciprian-18`, que usa la app de gestión de obras).
+- **Dos computadoras** (PC y laptop): `git pull` antes de empezar, commit + push al terminar. El `.env.local` no está en GitHub. Pasos completos en el README.
+- **Migraciones**: se pegan a mano en Supabase → SQL Editor, en orden (`supabase/migrations/000N_*.sql`). Deben poder correrse más de una vez sin duplicar nada.
+- **Estilo visual**: idéntico al sistema de gestión de obras (tema oscuro de cristal, menú lateral, mismo login). Colores en variables `--cc-*` (`src/index.css`) y componentes base en `src/componentes/ui.jsx` y `src/lib/ui.js`.
 
 ## 3. Principios de diseño (no negociables)
 
@@ -327,7 +328,57 @@ Ciprian va a compartir la información de Casa Bielva. Pasos:
 - El **despiece real por tramos** se muestra solo como comparativo informativo; no cambia la cantidad del generador.
 - ZC-01 = 21.71 ml × 7.182849 kg/ml = **155.94 kg** (golden test en `src/dominio/fichas/zapataCorrida.test.js`). ZC-01 21.71 + ZC-02 0.85 = 22.56 ml, igual que el DXF.
 
-## 14. Decisiones abiertas
+## 14. Estado de la app (al 26-oct-2026)
+
+### Cómo se usa
+
+```
+PROYECTO → su paquete de generadores (1 por proyecto)
+  → partidas y conceptos, en el orden del presupuesto
+    → cada concepto lleva un MÉTODO de análisis
+      → el método da la cantidad, guardada con su fórmula (tabla generadores)
+```
+
+- **Catálogo de la oficina** ("el básico"): partidas y conceptos en orden, cargados desde el reporte "b) Estándar" de Neodata (solo clave, descripción y unidad; **nunca precios ni cantidades**). Mientras no exista el catálogo definitivo `PP.SS.CCC`, la clave es la de Neodata.
+- **Paquete de un proyecto**: copia del catálogo (o importado del Excel, o vacío) que se reacomoda, edita y archiva **sin tocar el catálogo ni otras casas**. Cada concepto tiene estado pendiente / en proceso / listo.
+- **Al abrir un concepto** se ve "Cómo se genera el volumen": método, cálculo con los datos del proyecto, origen de los datos y pasos. La cantidad de Neodata es de cada concepto y sirve para comparar.
+- **Menú**: Generadores → Proyectos · Análisis → Métodos de análisis · Catálogos → Conceptos, Varillas.
+
+### Métodos de análisis implementados (`src/dominio/metodos.js`)
+
+| Método | Conceptos | Cómo calcula |
+|---|---|---|
+| `terreno` — Superficie del terreno | Limpia y despalme, trazo y nivelación | Rectángulo, vértices o polilínea cerrada del DXF en la capa «terreno» (fórmula de la lazada). El terreno se captura una vez en el proyecto (`proyectos.terreno`), lo reusan todos los conceptos y se dibuja en el 3D. |
+| `zapata_corrida` — Acero de la parrilla | Acero de ZC-01, ZC-02… | Ficha por 1.00 ml (sección 13, método CIM05B), con versiones y flujo Borrador → Revisado → Aprobado y esquema interactivo en planta e isométrico. |
+
+Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.
+
+### Base de datos (migraciones 0001–0004, todas aplicadas)
+
+| Migración | Contenido |
+|---|---|
+| 0001 | Bitácora automática por campo, varillas (pesos provisionales), insumos, partidas, conceptos, matrices, elementos tipo, fichas. RLS en todo. |
+| 0002 | Perfiles con rol (lectura < captura < revisión < aprobación; el primer usuario es aprobación), proyectos, flujo de fichas validado por trigger (nadie se aprueba a sí mismo; aprobadas congeladas), Casa Bielva con ZC-01 y ZC-02. |
+| 0003 | Orden de conceptos en el catálogo; `paquetes`, `paquete_partidas`, `paquete_conceptos`; funciones `crear_paquete`, `mover_paquete_concepto`, `mover_paquete_partida`. |
+| 0004 | `proyectos.terreno`, `paquete_conceptos.analisis_tipo`, tabla `generadores` (datos capturados, cantidad, unidad, fórmula); un paquete por proyecto. |
+
+- Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
+- Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).
+
+### Código
+
+- `src/dominio/`: cálculos puros y probados (fichas, terreno, métodos, importar Neodata, redondeo). Las fórmulas se escriben con `dato()` para los datos de entrada (sin redondear) y `fmt()` para resultados.
+- `src/lib/`: acceso a Supabase (`*Repo.js`), sesión, tema y estilos base.
+- `src/componentes/`: pantallas (Proyectos, ProyectoVista, PaqueteDetalle, GeneradorTerreno, FichaZapataCorrida, EsquemaZapata, Visor3D, Metodos, Catalogo…).
+- No hay router: `App.jsx` elige la vista.
+
+### Siguientes pasos
+
+1. Métodos para los demás conceptos de cimentación de Bielva, en orden de obra: trazo y nivelación (ya usa el terreno), excavación, afine, plantilla, cimbra de ZC, concreto, contratrabes, dalas, castillos…
+2. Inventario completo de elementos tipo de Bielva (CT-1, CT-2, TL-1, DD-1, K-1…) desde el estructural.
+3. Reportes de Neodata con tarjetas de PU y mano de obra (cuadrillas) para cargar matrices.
+
+## 15. Decisiones abiertas
 
 - [ ] Dirección de varillas e interpretación del análisis de la ZC (sección 7).
 - [ ] Recubrimiento, ganchos, traslapes y redondeo oficiales de la oficina.
