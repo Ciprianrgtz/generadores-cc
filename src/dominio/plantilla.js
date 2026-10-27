@@ -33,6 +33,7 @@ export function tramosDeExcavacion(datosExcavacion) {
         ancho: f.ancho,
         piezas: f.piezas,
         profundidad: Math.round(f.altoCepa * 10000) / 10000, // la plantilla va en el fondo de la cepa
+        desplante: f.profundidad, // dónde apoya el elemento, medido desde el NTN
         desfase: Number.isFinite(f.desfase) ? Math.round((f.desfase - corrimiento) * 10000) / 10000 : null,
         inicio: Number.isFinite(f.inicio) ? f.inicio : null,
         incluir: llevaPlantilla(f.elemento),

@@ -107,8 +107,9 @@ export const METODOS = {
       'La cantidad es la suma de los ml de los tramos marcados por sus piezas.',
       'Un elemento que no esté en la excavación (una contratrabe dentro de la cepa, una dala) se agrega a mano con su ml.',
       'Se compara con la cantidad que trae Neodata.',
+      'En el 3D se dibujan las dos fronteras laterales de cada tramo que entra, sobre el desplante del elemento.',
     ],
-    criterios: 'Sin criterios propios: solo qué tramos entran. Si la excavación cambia, se vuelven a tomar los tramos.',
+    criterios: 'Qué tramos entran. El alto de la frontera (0.20 por defecto) es solo de dibujo: no cambia la cantidad. Si la excavación cambia, se vuelven a tomar los tramos.',
   },
 }
 

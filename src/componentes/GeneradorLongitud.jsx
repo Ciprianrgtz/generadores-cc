@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { analizarLongitud, elementosDelConcepto, tramosPorLongitud } from '../dominio/longitud'
+import { analizarLongitud, CRITERIOS_LONGITUD, elementosDelConcepto, tramosPorLongitud } from '../dominio/longitud'
 import { fmt, unidadTexto } from '../dominio/redondeo'
 import * as repo from '../lib/proyectosRepo'
 import { avisoStyle } from '../lib/ui'
@@ -18,12 +18,13 @@ const aTexto = (t) => ({ ...t, ml: texto(t.ml), piezas: texto(t.piezas) })
  * corridas, de trabes de liga…). Los tramos salen del análisis de excavación del paquete; se marca
  * cuáles entran y, si el elemento no está en la excavación, se agrega a mano.
  */
-export default function GeneradorLongitud({ concepto, generadores, puedeEscribir, onGuardado, onVolver }) {
+export default function GeneradorLongitud({ concepto, generadores, puedeEscribir, onGuardado, onVolver, onCapturar }) {
   const excavaciones = generadores.filter((g) => g.tipo === 'excavacion' && g.datos?.renglones?.length)
   const patron = useMemo(() => elementosDelConcepto(concepto.descripcion), [concepto.descripcion])
   const [origenId, setOrigenId] = useState(null)
   const [tramos, setTramos] = useState(null)
   const [referencia, setReferencia] = useState('')
+  const [alto, setAlto] = useState(texto(CRITERIOS_LONGITUD.alto))
   const [guardado, setGuardado] = useState(null)
   const [mensaje, setMensaje] = useState(null)
   const [ocupado, setOcupado] = useState(false)
@@ -42,6 +43,7 @@ export default function GeneradorLongitud({ concepto, generadores, puedeEscribir
           setTramos(d.tramos.map(aTexto))
           setOrigenId(d.origen?.paquete_concepto_id ?? null)
           setReferencia(d.referencia != null ? texto(d.referencia) : '')
+          if (d.criterios?.alto > 0) setAlto(texto(d.criterios.alto))
         }
       })
       .catch((e) => vivo && setMensaje({ tipo: 'error', texto: repo.mensajeError(e) }))
@@ -52,10 +54,28 @@ export default function GeneradorLongitud({ concepto, generadores, puedeEscribir
 
   // sin análisis guardado, los tramos salen directo de la excavación
   const datosOrigen = origen?.datos
-  const lista = useMemo(() => tramos ?? (datosOrigen ? tramosPorLongitud(datosOrigen, patron).map(aTexto) : []), [tramos, datosOrigen, patron])
+  const lista = useMemo(() => {
+    if (!tramos) return datosOrigen ? tramosPorLongitud(datosOrigen, patron).map(aTexto) : []
+    // análisis guardados antes de dibujar la cimbra: el ancho y el desplante se toman de la excavación
+    if (!datosOrigen || tramos.every((t) => t.manual || t.ancho != null)) return tramos
+    const frescos = new Map(tramosPorLongitud(datosOrigen, patron).map((t) => [`${t.elemento}|${t.eje}|${t.entre}|${t.ml}`, t]))
+    return tramos.map((t) => {
+      const f = t.manual || t.ancho != null ? null : frescos.get(`${t.elemento}|${t.eje}|${t.entre}|${num(t.ml)}`)
+      return f ? { ...t, ancho: f.ancho, desfase: f.desfase, inicio: f.inicio, desplante: f.desplante } : t
+    })
+  }, [tramos, datosOrigen, patron])
   const entrada = useMemo(() => lista.map((t) => ({ ...t, ml: num(t.ml), piezas: num(t.piezas) || 1 })), [lista])
   const r = useMemo(() => analizarLongitud({ tramos: entrada }), [entrada])
   const ref = num(referencia)
+  const altoFrontera = num(alto) > 0 ? num(alto) : CRITERIOS_LONGITUD.alto
+
+  // la cimbra se dibuja en el 3D mientras se captura (principio 11)
+  useEffect(() => {
+    onCapturar?.('longitud', {
+      tramos: entrada.map((t) => ({ elemento: t.elemento, eje: t.eje ?? '', entre: t.entre ?? '', ml: t.ml, piezas: t.piezas, incluir: t.incluir !== false, manual: !!t.manual, ancho: t.ancho, desfase: t.desfase, inicio: t.inicio, desplante: t.desplante })),
+      criterios: { alto: altoFrontera },
+    })
+  }, [entrada, altoFrontera, onCapturar])
   const cuadra = ref > 0 && Math.abs(r.cantidad - ref) < 0.005
   const desactualizado =
     guardado?.datos?.origen?.actualizado_en && origen?.actualizado_en && new Date(origen.actualizado_en) > new Date(guardado.datos.origen.actualizado_en)
@@ -73,7 +93,8 @@ export default function GeneradorLongitud({ concepto, generadores, puedeEscribir
     try {
       const datos = {
         origen: origen ? { paquete_concepto_id: origen.paquete_concepto_id, concepto: origen.concepto?.clave ?? null, actualizado_en: origen.actualizado_en ?? null } : null,
-        tramos: entrada.map((t) => ({ elemento: t.elemento, eje: t.eje ?? '', entre: t.entre ?? '', ml: t.ml, piezas: t.piezas, incluir: t.incluir !== false, manual: !!t.manual })),
+        tramos: entrada.map((t) => ({ elemento: t.elemento, eje: t.eje ?? '', entre: t.entre ?? '', ml: t.ml, piezas: t.piezas, incluir: t.incluir !== false, manual: !!t.manual, ancho: t.ancho ?? null, desfase: t.desfase ?? null, inicio: t.inicio ?? null, desplante: t.desplante ?? null })),
+        criterios: { alto: altoFrontera },
         referencia: ref > 0 ? ref : null,
       }
       const g = await repo.guardarGenerador(concepto.id, { tipo: 'longitud', datos, cantidad: Math.round(r.total * 10000) / 10000, unidad: concepto.unidad, formula: r.formula })
@@ -148,6 +169,12 @@ export default function GeneradorLongitud({ concepto, generadores, puedeEscribir
               Se usan los ml del elemento del plano.
             </p>
             {puedeEscribir && origen && tramos && <Boton chico onClick={retomar}>Volver a tomar de la excavación</Boton>}
+          </Tarjeta>
+          <Tarjeta className="grid content-start gap-3 p-5">
+            <Campo etiqueta="Alto de la frontera (m), solo para dibujar">
+              <Entrada value={alto} disabled={!puedeEscribir} onChange={(e) => setAlto(e.target.value)} type="number" step="0.01" min="0" className="num" />
+            </Campo>
+            <p className="text-xs text-cc-tenue">No cambia la cantidad (se paga por ml). Es el alto de las tablas sobre el desplante: la zapata de 20 cm de peralte, la trabe de 25 cm…</p>
           </Tarjeta>
           <Tarjeta className="grid content-start gap-3 p-5">
             <Campo etiqueta={`Cantidad que trae Neodata (${unidadTexto(concepto.unidad)}), para comparar`}>

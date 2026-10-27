@@ -356,7 +356,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
 | `plantilla` — Plantilla bajo zapatas y trabes | Plantilla de concreto (CIM003) | Toma los tramos de la excavación: ml de ZC y TL del plano × (ancho del elemento + 2 × vuelo). Vuelo editable. |
 | `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. **La membrana va solo en la losa de cimentación** (no bajo zapatas, trabes ni firmes). Bielva: las 3 losas completas suman **75.17 m²**; Neodata trae 50.58 porque solo midió una franja (ver «Reglas de membrana»). |
-| `longitud` — Longitud de elementos | Cimbra de zapatas corridas (CIM004), de trabes de liga (CIM22D')… | Suma de los ml del elemento del plano que entran (tramos de la excavación, o agregados a mano) por sus piezas. Bielva: ZC = 22.56 ml (igual que Neodata); TL-1 = 8.62 ml (Neodata trae 8.97). |
+| `longitud` — Longitud de elementos | Cimbra de zapatas corridas (CIM004), de trabes de liga (CIM22D')… | Suma de los ml del elemento del plano que entran (tramos de la excavación, o agregados a mano) por sus piezas. Bielva: ZC = 22.56 ml (igual que Neodata); TL-1 = 8.62 ml (Neodata trae 8.97). Se dibuja en el 3D como las dos fronteras laterales de cada tramo (ancho del elemento, sin sobreancho) sobre su desplante; el alto de la frontera es un criterio editable solo de dibujo (0.20 por defecto) y no cambia la cantidad. |
 
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 

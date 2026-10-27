@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { EXCAVACION_BIELVA } from './bielva/excavacion.js'
-import { analizarLongitud, calcularTramo, elementosDelConcepto, tramosPorLongitud } from './longitud.js'
+import { analizarLongitud, calcularTramo, CRITERIOS_LONGITUD, elementosDelConcepto, tramosPorLongitud } from './longitud.js'
 
 const excavacion = { ...EXCAVACION_BIELVA, criterios: {} }
 
@@ -21,6 +21,14 @@ describe('Longitud de elementos (cimbra de zapatas corridas, trabes de liga…)'
   it('con solo las trabes de liga da los 8.62 ml del plano (Neodata trae 8.97)', () => {
     const patron = elementosDelConcepto('CIMBRADO, COLADO Y DESCIMBRADO DE CONTRA TRABE TL-1 DE 25x25')
     expect(analizarLongitud({ tramos: tramosPorLongitud(excavacion, patron) }).cantidad).toBe(8.62)
+  })
+
+  it('cada tramo trae lo necesario para dibujarlo por ejes: ancho del elemento y desplante', () => {
+    const zc = tramosPorLongitud(excavacion, /^ZC/i).find((t) => t.elemento === 'ZC-01')
+    expect(zc.ancho).toBe(0.8)
+    expect(zc.desplante).toBe(0.8)
+    expect(zc.desfase).toBe(0.4) // el centro de la zapata, no el de la cepa (que se corre 5 cm en colindancia)
+    expect(CRITERIOS_LONGITUD.alto).toBe(0.2)
   })
 
   it('un concepto sin elemento reconocido empieza sin tramos marcados', () => {

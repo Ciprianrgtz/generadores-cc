@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { analizarAfine } from '../dominio/afine'
 import { analizarAreas } from '../dominio/areas'
+import { analizarLongitud, CRITERIOS_LONGITUD } from '../dominio/longitud'
 import { analizarPlantilla } from '../dominio/plantilla'
 import { huellaPorEjes } from '../dominio/ejes'
 import { analizarExcavacion } from '../dominio/excavacion'
@@ -17,6 +18,7 @@ const COLORES = {
   delgada: 0x8c7356, // parte de 10 cm de losa y firme
   afine: 0x4fc3f7, // fondo y taludes que se afinan
   plantilla: 0xc3ccd2, // plantilla de concreto en el fondo de la cepa
+  cimbra: 0xe8d3a2, // fronteras de cimbra a los lados del elemento
   area: 0xa77bdb, // áreas de un concepto que se paga por superficie
 }
 const tipoDeRenglon = (f) => (/^Z/i.test(f.elemento) ? 'zapata' : 'trabe')
@@ -27,6 +29,7 @@ const NOMBRE_TIPO = {
   delgada: 'Losa 10 cm o firme',
   afine: 'Afine de fondo y taludes',
   plantilla: 'Plantilla de concreto',
+  cimbra: 'Cimbra (fronteras laterales)',
   area: 'Área',
 }
 
@@ -198,6 +201,40 @@ function piezasDePlantilla(generadores = [], ejes) {
   return { piezas, sinUbicar, area }
 }
 
+/**
+ * Cimbra: las dos fronteras laterales de cada elemento que entra, del ancho del elemento (sin sobreancho),
+ * a lo largo de sus ml y del alto indicado, apoyadas en su desplante. Se ubican por ejes.
+ */
+function piezasDeCimbra(generadores = [], ejes) {
+  const piezas = []
+  let sinUbicar = 0
+  let ml = 0
+  for (const g of generadores) {
+    if (g.tipo !== 'longitud' || !g.datos?.tramos) continue
+    const r = analizarLongitud({ tramos: g.datos.tramos })
+    const alto = g.datos.criterios?.alto > 0 ? g.datos.criterios.alto : CRITERIOS_LONGITUD.alto
+    ml += r.total
+    for (const f of r.filas) {
+      if (!f.valido || f.incluir === false) continue
+      const huella = Number.isFinite(f.desplante) ? huellaPorEjes({ ...f, largo: f.ml }, ejes, f.ancho).huella : null
+      if (!huella) sinUbicar++
+      else
+        piezas.push({
+          huella,
+          profundidad: f.desplante,
+          alto,
+          tipo: 'cimbra',
+          nombre: f.elemento,
+          ubicacion: [f.eje && `Eje ${f.eje}`, f.entre && `entre ${f.entre}`].filter(Boolean).join(' · '),
+          formula: f.formula,
+          detalle: `2 fronteras de ${fmt(f.ml)} m × ${fmt(alto)} m de alto sobre el desplante −${fmt(f.desplante)} m`,
+          concepto: g.concepto?.clave,
+        })
+    }
+  }
+  return { piezas, sinUbicar, ml }
+}
+
 /** Las dos paredes largas de un contorno (las que se afinan como taludes). */
 function paredesLargas(contorno) {
   const lados = contorno.map((a, i) => {
@@ -222,21 +259,22 @@ function forma([contorno, ...huecos]) {
 export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
   const caja = useRef(null)
   const motor = useRef(null) // escena, cámara y lo dibujado; se crea una vez y se reusa
-  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true })
+  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true, cimbra: true })
   const [sel, setSel] = useState(null) // clave de la pieza elegida con un clic
   const exc = useMemo(() => piezasDeExcavacion(generadores, ejes), [generadores, ejes])
   const afi = useMemo(() => piezasDeAfine(generadores, ejes, exc.huellas), [generadores, ejes, exc])
   const pla = useMemo(() => piezasDePlantilla(generadores, ejes), [generadores, ejes])
   const are = useMemo(() => piezasDeAreas(generadores), [generadores])
+  const cim = useMemo(() => piezasDeCimbra(generadores, ejes), [generadores, ejes])
   // lo que se dibuja; la clave identifica la pieza aunque se vuelva a calcular al capturar
   const todas = useMemo(() => {
     const vistas = {}
-    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
+    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.cimbra ? cim.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
       const base = `${p.tipo}|${p.concepto}|${p.nombre}|${p.ubicacion}`
       const n = (vistas[base] = (vistas[base] ?? 0) + 1)
       return { ...p, clave: n > 1 ? `${base}|${n}` : base }
     })
-  }, [exc, afi, pla, are, ver.excavacion, ver.afine, ver.plantilla, ver.areas])
+  }, [exc, afi, pla, cim, are, ver.excavacion, ver.afine, ver.plantilla, ver.cimbra, ver.areas])
 
   // 1) escena, cámara, controles y selección: una sola vez
   useEffect(() => {
@@ -271,7 +309,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       rayo.setFromCamera(puntero, camara)
       const golpes = rayo.intersectObjects(m.seleccionables, false)
       // el afine va por dentro de la cepa: si el rayo lo toca, gana a la caja de excavación
-      const g = golpes.find((x) => x.object.userData.tipo === 'afine') ?? golpes[0]
+      const g = golpes.find((x) => x.object.userData.tipo === 'afine' || x.object.userData.tipo === 'cimbra') ?? golpes[0]
       return g?.object.userData.clave ?? null
     }
     let inicio = null
@@ -350,7 +388,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       return geo
     }
     const hayExcavacion = todas.length > 0
-    const conAfine = todas.some((p) => p.tipo === 'afine')
+    const conAfine = todas.some((p) => p.tipo === 'afine' || p.tipo === 'cimbra') // piezas por dentro de la cepa
 
     const v = terreno?.vertices
     if (v?.length >= 3 && ver.terreno) {
@@ -377,7 +415,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       for (const e of hs) contenido.add(etiqueta(e.nombre, x1 - sobra - 0.6, -e.pos))
     }
     // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
-    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
+    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'cimbra' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
     const agregar = (geo, pz) => {
       const malla = new THREE.Mesh(
         geo,
@@ -385,8 +423,8 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
           color: COLORES[pz.tipo],
           transparent: true,
           opacity: opacidad(pz.tipo),
-          side: pz.tipo === 'afine' ? THREE.DoubleSide : THREE.FrontSide,
-          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'area' || !conAfine,
+          side: pz.tipo === 'afine' || pz.tipo === 'cimbra' ? THREE.DoubleSide : THREE.FrontSide,
+          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'cimbra' || pz.tipo === 'area' || !conAfine,
         }),
       )
       malla.userData = { clave: pz.clave, tipo: pz.tipo }
@@ -395,6 +433,16 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
     }
     for (const pz of todas) {
       for (const pol of pz.huella) {
+        if (pz.tipo === 'cimbra') {
+          // dos tablones verticales, uno por cada lado largo del elemento, sobre su desplante
+          for (const { a, b, largo } of paredesLargas(pol[0])) {
+            const frontera = new THREE.PlaneGeometry(largo, pz.alto)
+            frontera.rotateY(Math.atan2(b[1] - a[1], b[0] - a[0]))
+            frontera.translate((a[0] + b[0]) / 2, -pz.profundidad + pz.alto / 2, -(a[1] + b[1]) / 2)
+            agregar(frontera, pz)
+          }
+          continue
+        }
         if (pz.tipo !== 'afine') {
           // la plantilla es una placa de su grosor en el fondo; lo demás va del fondo al nivel 0
           const geo = extruir(forma(pol), pz.grosor ?? pz.profundidad)
@@ -478,6 +526,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
         {exc.volumen > 0 && casilla('excavacion', `Excavación ${fmt(exc.volumen)} m³`)}
         {afi.area > 0 && casilla('afine', `Afine ${fmt(afi.area)} m²`)}
         {pla.area > 0 && casilla('plantilla', `Plantilla ${fmt(pla.area)} m²`)}
+        {cim.ml > 0 && casilla('cimbra', `Cimbra ${fmt(cim.ml)} ml`)}
         {are.area > 0 && casilla('areas', `Áreas ${fmt(are.area)} m²`)}
         {terreno?.area > 0 && (
           <span className="num ml-auto text-xs text-cc-suave">
@@ -500,10 +549,16 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
             {muestra(COLORES.delgada, 'Losa 10 cm y firme (0.10)')}
             {ver.afine && afi.piezas.length > 0 && muestra(COLORES.afine, 'Afine: fondo y taludes')}
             {ver.plantilla && pla.piezas.length > 0 && muestra(COLORES.plantilla, 'Plantilla de concreto')}
+            {ver.cimbra && cim.piezas.length > 0 && muestra(COLORES.cimbra, 'Cimbra: fronteras laterales')}
             {ver.areas && are.piezas.length > 0 && muestra(COLORES.area, 'Áreas (membrana, firme…)')}
           </div>
         )}
         {elegida && <FichaPieza pieza={elegida} />}
+        {ver.cimbra && cim.sinUbicar > 0 && (
+          <p className="pointer-events-none absolute bottom-6 left-3 text-[11px]" style={{ color: '#f0b866' }}>
+            {cim.sinUbicar} tramo(s) de cimbra sin ubicación en planta: suman a los ml pero no se dibujan.
+          </p>
+        )}
         {ver.excavacion && exc.sinUbicar > 0 && (
           <p className="pointer-events-none absolute bottom-2 left-3 text-[11px]" style={{ color: '#f0b866' }}>
             {exc.sinUbicar} renglón(es) de excavación sin ubicación en planta: suman al volumen pero no se dibujan.
@@ -528,9 +583,11 @@ function FichaPieza({ pieza }) {
       </span>
       <b className="text-sm">{pieza.nombre}</b>
       {pieza.ubicacion && <span style={{ color: '#a9b8b1' }}>{pieza.ubicacion}</span>}
-      <span className="num" style={{ color: '#a9b8b1' }}>
-        Profundidad {fmt(pieza.profundidad)} m
-      </span>
+      {pieza.tipo !== 'cimbra' && (
+        <span className="num" style={{ color: '#a9b8b1' }}>
+          Profundidad {fmt(pieza.profundidad)} m
+        </span>
+      )}
       {pieza.detalle && <span className="num" style={{ color: '#a9b8b1' }}>{pieza.detalle}</span>}
       <span className="num mt-1">{pieza.formula}</span>
     </div>

@@ -109,6 +109,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
               onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
             />
           ) : analisis?.analisis_tipo === 'plantilla' ? (
             <GeneradorPlantilla

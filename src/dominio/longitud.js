@@ -15,6 +15,12 @@ import { dato, fmt, r2 } from './redondeo.js'
  *     se agrega a mano con su ml.
  */
 
+/**
+ * Criterio solo de dibujo (no cambia la cantidad): el alto de la frontera de cimbra sobre el
+ * desplante del elemento. Zapata de 20 cm de peralte; se edita según el elemento.
+ */
+export const CRITERIOS_LONGITUD = { alto: 0.2 }
+
 /** Qué elementos entran solos, según de qué es el concepto (siempre se puede cambiar con las casillas). */
 export function elementosDelConcepto(descripcion) {
   const d = String(descripcion ?? '')
@@ -31,6 +37,11 @@ export function tramosPorLongitud(datosExcavacion, patron) {
     entre: t.entre,
     ml: t.ml,
     piezas: t.piezas,
+    // para dibujarlo por ejes en el 3D
+    ancho: t.ancho,
+    desfase: t.desfase,
+    inicio: t.inicio,
+    desplante: t.desplante,
     incluir: patron ? patron.test(String(t.elemento ?? '').trim()) : false,
   }))
 }
