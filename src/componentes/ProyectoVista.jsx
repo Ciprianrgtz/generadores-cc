@@ -7,6 +7,7 @@ import { botones } from '../lib/ui'
 import EjesProyecto from './EjesProyecto'
 import GeneradorAfine from './GeneradorAfine'
 import GeneradorAreas from './GeneradorAreas'
+import GeneradorAcero from './GeneradorAcero'
 import GeneradorExcavacion from './GeneradorExcavacion'
 import GeneradorLongitud from './GeneradorLongitud'
 import GeneradorPlantilla from './GeneradorPlantilla'
@@ -60,7 +61,7 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
   }, [cargar])
 
   function abrirAnalisis(concepto) {
-    if (concepto.analisis_tipo === 'zapata_corrida') return onAbrirZapata()
+    if (concepto.analisis_tipo === 'zapata_corrida') return onAbrirZapata(proy.clave)
     setAnalisis(concepto)
   }
 
@@ -101,6 +102,17 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               onGuardado={cargar}
               onVolver={cerrarAnalisis}
               onCapturar={alCapturar}
+            />
+          ) : analisis?.analisis_tipo === 'acero_ficha' ? (
+            <GeneradorAcero
+              concepto={analisis}
+              generadores={generadores}
+              proyecto={proy}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
+              onAbrirFicha={onAbrirZapata}
             />
           ) : analisis?.analisis_tipo === 'longitud' ? (
             <GeneradorLongitud

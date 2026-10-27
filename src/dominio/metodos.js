@@ -111,6 +111,21 @@ export const METODOS = {
     ],
     criterios: 'Qué tramos entran. El alto de la frontera (0.20 por defecto) es solo de dibujo: no cambia la cantidad. Si la excavación cambia, se vuelven a tomar los tramos.',
   },
+  acero_ficha: {
+    id: 'acero_ficha',
+    nombre: 'Acero por ficha',
+    aplica: 'Acero de refuerzo que se paga por kg y tiene ficha de análisis: zapatas corridas (ZC-01, ZC-02, tipos nuevos…) y, cuando tengan su ficha, trabes, losas y castillos.',
+    unidad: 'kg',
+    pasos: [
+      'Se toma el elemento que menciona el concepto (ZC-01…) y se busca su ficha entre los elementos tipo del proyecto.',
+      'Los ml del elemento salen de sus tramos en la excavación guardada (los ml del plano: en una esquina cuenta completo en los dos lados); un tramo que no esté se agrega a mano.',
+      'Los kg por metro lineal salen de la última versión de la ficha: ahí viven la separación, los números de varilla de cada sentido, el recubrimiento, los ganchos y el desperdicio.',
+      'Cantidad del generador = Σ ml × kg/ml. También se guarda el desglose por diámetro (kg de #3, de #4…) para la explosión de insumos.',
+      'Si la ficha no está aprobada o cambia después de guardar, el generador lo avisa. Se compara con Neodata.',
+      'En el 3D se dibuja el elemento (ancho × peralte de su ficha) sobre su desplante, en cada tramo que entra.',
+    ],
+    criterios: 'Ninguno propio: todo lo de la oficina (recubrimiento, ganchos, desperdicio) está en la ficha. Para otra separación u otro armado se crea un tipo nuevo en la ficha de zapata corrida.',
+  },
 }
 
 /** Resumen en una línea de un análisis de suma de áreas guardado. */
@@ -122,6 +137,14 @@ export function origenAreas(datos) {
 }
 
 export const LISTA_METODOS = Object.values(METODOS)
+
+/** Resumen en una línea de un análisis de acero por ficha guardado. */
+export function origenAcero(datos) {
+  if (!datos?.ficha) return null
+  const usados = (datos.tramos ?? []).filter((t) => t.incluir !== false)
+  const f = datos.ficha
+  return `${datos.elemento ?? 'Elemento'} · ${usados.length} tramos × ${Number(f.kgMl).toFixed(6)} kg/ml de su ficha v${f.version} (${f.estado})`
+}
 
 /** Resumen en una línea de un análisis de longitud guardado. */
 export function origenLongitud(datos) {

@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { analizarAfine } from '../dominio/afine'
 import { analizarAreas } from '../dominio/areas'
+import { analizarAcero } from '../dominio/acero'
 import { analizarLongitud, CRITERIOS_LONGITUD } from '../dominio/longitud'
 import { analizarPlantilla } from '../dominio/plantilla'
 import { huellaPorEjes } from '../dominio/ejes'
@@ -19,6 +20,7 @@ const COLORES = {
   afine: 0x4fc3f7, // fondo y taludes que se afinan
   plantilla: 0xc3ccd2, // plantilla de concreto en el fondo de la cepa
   cimbra: 0xe8d3a2, // fronteras de cimbra a los lados del elemento
+  acero: 0xd9674f, // elementos con su acero de refuerzo asignado
   area: 0xa77bdb, // áreas de un concepto que se paga por superficie
 }
 const tipoDeRenglon = (f) => (/^Z/i.test(f.elemento) ? 'zapata' : 'trabe')
@@ -30,6 +32,7 @@ const NOMBRE_TIPO = {
   afine: 'Afine de fondo y taludes',
   plantilla: 'Plantilla de concreto',
   cimbra: 'Cimbra (fronteras laterales)',
+  acero: 'Elemento con acero (ficha)',
   area: 'Área',
 }
 
@@ -235,6 +238,41 @@ function piezasDeCimbra(generadores = [], ejes) {
   return { piezas, sinUbicar, ml }
 }
 
+/**
+ * Acero por ficha: el elemento (ancho × peralte de su ficha) sobre su desplante, en cada tramo que entra.
+ * Marca qué zapatas ya tienen su acero asignado; las varillas están en el esquema de la ficha.
+ */
+function piezasDeAcero(generadores = [], ejes) {
+  const piezas = []
+  let sinUbicar = 0
+  let kg = 0
+  for (const g of generadores) {
+    if (g.tipo !== 'acero_ficha' || !g.datos?.tramos || !(g.datos.ficha?.kgMl > 0)) continue
+    const kgMl = g.datos.ficha.kgMl
+    const peralte = g.datos.ficha.peralte
+    const r = analizarAcero({ tramos: g.datos.tramos, ficha: { kgMl, porDiametro: {} } })
+    kg += r.total
+    for (const f of r.filas) {
+      if (!f.valido || f.incluir === false) continue
+      const huella = Number.isFinite(f.desplante) && peralte > 0 ? huellaPorEjes({ ...f, largo: f.ml }, ejes, f.ancho).huella : null
+      if (!huella) sinUbicar++
+      else
+        piezas.push({
+          huella,
+          profundidad: f.desplante,
+          grosor: peralte,
+          tipo: 'acero',
+          nombre: f.elemento,
+          ubicacion: [f.eje && `Eje ${f.eje}`, f.entre && `entre ${f.entre}`].filter(Boolean).join(' · '),
+          formula: `${fmt(f.total)} ml × ${fmt(kgMl, 6)} kg/ml = ${fmt(f.total * kgMl)} kg`,
+          detalle: `Ficha v${g.datos.ficha.version} (${g.datos.ficha.estado}) · ${fmt(f.ancho)} × ${fmt(peralte)} m`,
+          concepto: g.concepto?.clave,
+        })
+    }
+  }
+  return { piezas, sinUbicar, kg }
+}
+
 /** Las dos paredes largas de un contorno (las que se afinan como taludes). */
 function paredesLargas(contorno) {
   const lados = contorno.map((a, i) => {
@@ -259,22 +297,23 @@ function forma([contorno, ...huecos]) {
 export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
   const caja = useRef(null)
   const motor = useRef(null) // escena, cámara y lo dibujado; se crea una vez y se reusa
-  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true, cimbra: true })
+  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true, cimbra: true, acero: true })
   const [sel, setSel] = useState(null) // clave de la pieza elegida con un clic
   const exc = useMemo(() => piezasDeExcavacion(generadores, ejes), [generadores, ejes])
   const afi = useMemo(() => piezasDeAfine(generadores, ejes, exc.huellas), [generadores, ejes, exc])
   const pla = useMemo(() => piezasDePlantilla(generadores, ejes), [generadores, ejes])
   const are = useMemo(() => piezasDeAreas(generadores), [generadores])
   const cim = useMemo(() => piezasDeCimbra(generadores, ejes), [generadores, ejes])
+  const ace = useMemo(() => piezasDeAcero(generadores, ejes), [generadores, ejes])
   // lo que se dibuja; la clave identifica la pieza aunque se vuelva a calcular al capturar
   const todas = useMemo(() => {
     const vistas = {}
-    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.cimbra ? cim.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
+    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.cimbra ? cim.piezas : []), ...(ver.acero ? ace.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
       const base = `${p.tipo}|${p.concepto}|${p.nombre}|${p.ubicacion}`
       const n = (vistas[base] = (vistas[base] ?? 0) + 1)
       return { ...p, clave: n > 1 ? `${base}|${n}` : base }
     })
-  }, [exc, afi, pla, cim, are, ver.excavacion, ver.afine, ver.plantilla, ver.cimbra, ver.areas])
+  }, [exc, afi, pla, cim, ace, are, ver.excavacion, ver.afine, ver.plantilla, ver.cimbra, ver.acero, ver.areas])
 
   // 1) escena, cámara, controles y selección: una sola vez
   useEffect(() => {
@@ -388,7 +427,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       return geo
     }
     const hayExcavacion = todas.length > 0
-    const conAfine = todas.some((p) => p.tipo === 'afine' || p.tipo === 'cimbra') // piezas por dentro de la cepa
+    const conAfine = todas.some((p) => p.tipo === 'afine' || p.tipo === 'cimbra' || p.tipo === 'acero') // piezas por dentro de la cepa
 
     const v = terreno?.vertices
     if (v?.length >= 3 && ver.terreno) {
@@ -415,7 +454,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       for (const e of hs) contenido.add(etiqueta(e.nombre, x1 - sobra - 0.6, -e.pos))
     }
     // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
-    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'cimbra' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
+    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'cimbra' || tipo === 'acero' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
     const agregar = (geo, pz) => {
       const malla = new THREE.Mesh(
         geo,
@@ -424,7 +463,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
           transparent: true,
           opacity: opacidad(pz.tipo),
           side: pz.tipo === 'afine' || pz.tipo === 'cimbra' ? THREE.DoubleSide : THREE.FrontSide,
-          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'cimbra' || pz.tipo === 'area' || !conAfine,
+          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'cimbra' || pz.tipo === 'acero' || pz.tipo === 'area' || !conAfine,
         }),
       )
       malla.userData = { clave: pz.clave, tipo: pz.tipo }
@@ -526,6 +565,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
         {exc.volumen > 0 && casilla('excavacion', `Excavación ${fmt(exc.volumen)} m³`)}
         {afi.area > 0 && casilla('afine', `Afine ${fmt(afi.area)} m²`)}
         {pla.area > 0 && casilla('plantilla', `Plantilla ${fmt(pla.area)} m²`)}
+        {ace.kg > 0 && casilla('acero', `Acero ${fmt(ace.kg)} kg`)}
         {cim.ml > 0 && casilla('cimbra', `Cimbra ${fmt(cim.ml)} ml`)}
         {are.area > 0 && casilla('areas', `Áreas ${fmt(are.area)} m²`)}
         {terreno?.area > 0 && (
@@ -549,11 +589,17 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
             {muestra(COLORES.delgada, 'Losa 10 cm y firme (0.10)')}
             {ver.afine && afi.piezas.length > 0 && muestra(COLORES.afine, 'Afine: fondo y taludes')}
             {ver.plantilla && pla.piezas.length > 0 && muestra(COLORES.plantilla, 'Plantilla de concreto')}
+            {ver.acero && ace.piezas.length > 0 && muestra(COLORES.acero, 'Elemento con acero (ficha)')}
             {ver.cimbra && cim.piezas.length > 0 && muestra(COLORES.cimbra, 'Cimbra: fronteras laterales')}
             {ver.areas && are.piezas.length > 0 && muestra(COLORES.area, 'Áreas (membrana, firme…)')}
           </div>
         )}
         {elegida && <FichaPieza pieza={elegida} />}
+        {ver.acero && ace.sinUbicar > 0 && (
+          <p className="pointer-events-none absolute bottom-10 left-3 text-[11px]" style={{ color: '#f0b866' }}>
+            {ace.sinUbicar} tramo(s) de acero sin ubicación en planta: suman a los kg pero no se dibujan.
+          </p>
+        )}
         {ver.cimbra && cim.sinUbicar > 0 && (
           <p className="pointer-events-none absolute bottom-6 left-3 text-[11px]" style={{ color: '#f0b866' }}>
             {cim.sinUbicar} tramo(s) de cimbra sin ubicación en planta: suman a los ml pero no se dibujan.
@@ -583,7 +629,7 @@ function FichaPieza({ pieza }) {
       </span>
       <b className="text-sm">{pieza.nombre}</b>
       {pieza.ubicacion && <span style={{ color: '#a9b8b1' }}>{pieza.ubicacion}</span>}
-      {pieza.tipo !== 'cimbra' && (
+      {pieza.tipo !== 'cimbra' && pieza.tipo !== 'acero' && (
         <span className="num" style={{ color: '#a9b8b1' }}>
           Profundidad {fmt(pieza.profundidad)} m
         </span>

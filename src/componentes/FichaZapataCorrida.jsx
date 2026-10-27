@@ -89,8 +89,35 @@ function Grupo({ titulo, children }) {
   )
 }
 
-export default function FichaZapataCorrida({ varillas, perfil }) {
+/** Siguiente código libre del grupo: ZC-01, ZC-02 → ZC-03. */
+function siguienteCodigo(elementos) {
+  const n = elementos.reduce((m, e) => Math.max(m, Number(/(\d+)\s*$/.exec(e.codigo)?.[1] ?? 0)), 0)
+  return `ZC-${String(n + 1).padStart(2, '0')}`
+}
+
+/**
+ * Alta rápida de un tipo de zapata: copia la sección y el armado del elemento que se está viendo
+ * (o parte de una zapata estándar si no hay ninguno); después solo se cambian separación y varillas.
+ */
+function NuevoTipo({ elementos, base, puedeEscribir, ocupado, onCrear }) {
+  const [codigo, setCodigo] = useState(() => siguienteCodigo(elementos))
+  if (!puedeEscribir) return null
+  const repetido = elementos.some((e) => e.codigo.toUpperCase() === codigo.trim().toUpperCase())
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Entrada value={codigo} onChange={(e) => setCodigo(e.target.value)} className="num" style={{ width: 110, padding: '6px 8px', fontSize: 13 }} aria-label="Código del nuevo tipo" />
+      <Boton chico disabled={ocupado || !codigo.trim() || repetido} onClick={() => onCrear(codigo.trim().toUpperCase(), base)}>
+        + Nuevo tipo{base ? ` (copia de ${base.codigo})` : ''}
+      </Boton>
+      {repetido && <span className="text-xs" style={{ color: '#f0b866' }}>Ese código ya existe</span>}
+    </div>
+  )
+}
+
+export default function FichaZapataCorrida({ varillas, perfil, proyectoClave = 'BIELVA' }) {
   const tabla = useMemo(() => varillasPorId(varillas), [varillas])
+  const [proyecto, setProyecto] = useState(null)
+  const [cargado, setCargado] = useState(false)
   const [elementos, setElementos] = useState([])
   const [elementoId, setElementoId] = useState(null)
   const [historial, setHistorial] = useState([])
@@ -110,16 +137,46 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
     onClick: (g) => setFijo((x) => (x === g ? null : g)),
   }
 
+  const cargarElementos = useCallback(
+    (elegir) =>
+      repo
+        .elementosTipo(proyectoClave, 'ZC')
+        .then(({ proyecto, elementos }) => {
+          setProyecto(proyecto)
+          setElementos(elementos)
+          setElementoId((id) => elegir ?? id ?? elementos[0]?.id ?? null)
+          setCargado(true)
+        })
+        .catch((e) => setMensaje({ tipo: 'error', texto: e.message })),
+    [proyectoClave],
+  )
+
   useEffect(() => {
-    repo
-      .elementosTipo('BIELVA', 'ZC')
-      .then(({ elementos }) => {
-        setElementos(elementos)
-        setElementoId((id) => id ?? elementos[0]?.id ?? null)
-      })
-      .catch((e) => setMensaje({ tipo: 'error', texto: e.message }))
+    cargarElementos()
     repo.perfiles().then(setNombres).catch(() => {})
-  }, [])
+  }, [cargarElementos])
+
+  async function crearTipo(codigo, base) {
+    setOcupado(true)
+    setMensaje(null)
+    try {
+      const nuevo = await repo.crearElementoTipo({
+        proyecto_id: proyecto.id,
+        codigo,
+        grupo: 'ZC',
+        descripcion: `Zapata corrida ${codigo}`,
+        seccion: base?.seccion ?? { ancho: 0.8, peralte: 0.2 },
+        armado: base?.armado ?? [{ sentido: 'corto', varilla: '3', separacion: 0.2 }, { sentido: 'largo', varilla: '3', separacion: 0.2 }],
+        fuente: 'Capturado en la ficha',
+      })
+      await cargarElementos(nuevo.id)
+      setMensaje({ tipo: 'ok', texto: `${codigo} creada: cambia la separación o las varillas y guarda su ficha v1.` })
+    } catch (e) {
+      setMensaje({ tipo: 'error', texto: e.message })
+    } finally {
+      setOcupado(false)
+    }
+  }
 
   const elemento = elementos.find((e) => e.id === elementoId)
   const ficha = historial.find((v) => v.id === versionVista) ?? null
@@ -153,6 +210,16 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
     }
   }, [f, tabla])
 
+  const puedeEscribir = perfil && perfil.rol !== 'lectura'
+  if (cargado && !elementos.length && varillas.length)
+    return (
+      <Tarjeta className="grid gap-3 p-5">
+        <Seccion>Fichas de zapata corrida · {proyecto?.nombre ?? proyectoClave}</Seccion>
+        <p className="text-sm text-cc-suave">Este proyecto todavía no tiene tipos de zapata. Crea el primero (ZC-01) y captura su armado.</p>
+        {mensaje && <Aviso color={mensaje.tipo === 'error' ? 'rojo' : 'verde'}>{mensaje.texto}</Aviso>}
+        {proyecto && <NuevoTipo elementos={elementos} base={null} puedeEscribir={puedeEscribir} ocupado={ocupado} onCrear={crearTipo} />}
+      </Tarjeta>
+    )
   if (!varillas.length || !f) return <p className="p-4 text-sm text-cc-suave">Cargando…</p>
 
   const editable = !ficha || ficha.estado === 'borrador'
@@ -224,6 +291,7 @@ export default function FichaZapataCorrida({ varillas, perfil }) {
             ))}
           </Seleccion>
         </label>
+        {proyecto && <NuevoTipo key={elementos.length} elementos={elementos} base={elemento} puedeEscribir={puedeEscribir} ocupado={ocupado} onCrear={crearTipo} />}
         {historial.length > 0 && (
           <label className="flex items-center gap-2 text-sm">
             <span className="text-cc-suave">Versión</span>

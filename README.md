@@ -36,6 +36,7 @@ Las migraciones están en `supabase/migrations/` y se ejecutan en orden en Supab
 | `0008_metodo_plantilla.sql` | Habilita el método de plantilla bajo zapatas y trabes de liga |
 | `0009_metodo_areas.sql` | Habilita el método de suma de áreas (membrana, afine para firme, firmes) |
 | `0010_metodo_longitud.sql` | Habilita el método de longitud de elementos (cimbra de zapatas y de trabes de liga) |
+| `0011_metodo_acero_ficha.sql` | Habilita el método de acero por ficha (acero de zapatas: ml × kg/ml de la ficha) |
 
 ## Usuarios
 

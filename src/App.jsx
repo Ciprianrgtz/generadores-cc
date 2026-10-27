@@ -58,21 +58,28 @@ export default function App() {
   const varillas = useVarillas()
   const { sesion, perfil, cargando } = useSesion()
   const [vista, setVista] = useState('proyectos')
+  const [fichaProyecto, setFichaProyecto] = useState('BIELVA') // de qué proyecto se abre la ficha de zapata
 
   if (cargando) return null
   if (supabaseConfigurado && !sesion) return <Login />
 
+  // desde un proyecto llega su clave; desde la biblioteca de métodos llega el clic (se ignora)
+  const abrirFicha = (clave) => {
+    if (typeof clave === 'string') setFichaProyecto(clave)
+    setVista('ficha-zc')
+  }
+
   return (
     <Layout vista={vista} onVista={setVista} sesion={sesion} perfil={perfil} conexion={estadoConexion(varillas)}>
-      {vista === 'proyectos' && <Proyectos perfil={perfil} onAbrirZapata={() => setVista('ficha-zc')} />}
+      {vista === 'proyectos' && <Proyectos perfil={perfil} onAbrirZapata={abrirFicha} />}
       {vista === 'catalogo' && <CatalogoPantalla perfil={perfil} />}
-      {vista === 'metodos' && <Metodos onAbrirZapata={() => setVista('ficha-zc')} />}
+      {vista === 'metodos' && <Metodos onAbrirZapata={() => abrirFicha()} />}
       {vista === 'ficha-zc' && (
         <div className="grid gap-4">
           <div>
             <Boton onClick={() => setVista('metodos')}>← Métodos de análisis</Boton>
           </div>
-          <FichaZapataCorrida varillas={varillas.datos} perfil={perfil} />
+          <FichaZapataCorrida key={fichaProyecto} varillas={varillas.datos} perfil={perfil} proyectoClave={fichaProyecto} />
         </div>
       )}
       {vista === 'varillas' && <TablaVarillas datos={varillas.datos} />}

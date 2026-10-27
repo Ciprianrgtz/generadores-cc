@@ -22,6 +22,31 @@ export async function elementosTipo(proyectoClave, grupo) {
   return { proyecto, elementos }
 }
 
+/** Todos los elementos tipo de un proyecto, cada uno con su última versión de ficha (o null). */
+export async function fichasDelProyecto(proyectoId) {
+  const elementos = ok(
+    await supabase
+      .from('elementos_tipo')
+      .select('id, codigo, grupo, descripcion, seccion, armado, fuente')
+      .eq('proyecto_id', proyectoId)
+      .order('codigo'),
+  )
+  if (!elementos.length) return []
+  const fichas = ok(
+    await supabase
+      .from('fichas')
+      .select('id, elemento_tipo_id, version, estado, parametros, resultados')
+      .in('elemento_tipo_id', elementos.map((e) => e.id))
+      .order('version', { ascending: false }),
+  )
+  return elementos.map((e) => ({ ...e, ficha: fichas.find((f) => f.elemento_tipo_id === e.id) ?? null }))
+}
+
+/** Alta de un tipo de elemento (por ejemplo una zapata nueva del estructural) en un proyecto. */
+export async function crearElementoTipo(fila) {
+  return ok(await supabase.from('elementos_tipo').insert(fila).select().single())
+}
+
 export async function versiones(elementoTipoId) {
   return ok(
     await supabase

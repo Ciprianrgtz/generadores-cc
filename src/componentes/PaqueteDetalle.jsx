@@ -337,6 +337,7 @@ const ANALISIS = {
   plantilla: { nombre: 'Plantilla bajo zapatas y trabes', detalle: 'ml de zapatas corridas y trabes de liga × ancho con vuelo' },
   areas: { nombre: 'Suma de áreas', detalle: 'Membrana, afine para firme, firmes… se eligen las áreas que entran' },
   longitud: { nombre: 'Longitud de elementos', detalle: 'Cimbra de zapatas corridas, de trabes de liga… por metro lineal' },
+  acero_ficha: { nombre: 'Acero por ficha', detalle: 'ml del elemento × kg/ml de su ficha (ZC-01, ZC-02, tipos nuevos…)' },
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
@@ -353,9 +354,11 @@ const sugerido = (c) =>
       ? 'afine'
       : /^excavaci[oó]n/i.test(c.descripcion)
       ? 'excavacion'
-      : /zapata corrida/i.test(c.descripcion)
-        ? 'zapata_corrida'
-        : null
+      : /^acero de refuerzo en zapata corrida/i.test(c.descripcion)
+        ? 'acero_ficha'
+        : /zapata corrida/i.test(c.descripcion)
+          ? 'zapata_corrida'
+          : null
 
 function PanelConcepto({ concepto, partida, puedeEscribir, terreno, hacer, onQuitado, onAbrirAnalisis }) {
   const [v, setV] = useState({ clave: concepto.clave, descripcion: concepto.descripcion, unidad: concepto.unidad })
