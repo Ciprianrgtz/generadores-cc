@@ -6,6 +6,7 @@ import * as paquetes from '../lib/paquetesRepo'
 import { botones } from '../lib/ui'
 import EjesProyecto from './EjesProyecto'
 import GeneradorAfine from './GeneradorAfine'
+import GeneradorAreas from './GeneradorAreas'
 import GeneradorExcavacion from './GeneradorExcavacion'
 import GeneradorPlantilla from './GeneradorPlantilla'
 import GeneradorTerreno from './GeneradorTerreno'
@@ -85,6 +86,16 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               concepto={analisis}
               ejes={ejesVivos}
               proyecto={proy}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
+            />
+          ) : analisis?.analisis_tipo === 'areas' ? (
+            <GeneradorAreas
+              concepto={analisis}
+              ejes={ejesVivos}
+              generadores={generadores}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
               onVolver={cerrarAnalisis}

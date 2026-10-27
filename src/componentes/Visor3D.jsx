@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { analizarAfine } from '../dominio/afine'
+import { analizarAreas } from '../dominio/areas'
 import { analizarPlantilla } from '../dominio/plantilla'
 import { huellaPorEjes } from '../dominio/ejes'
 import { analizarExcavacion } from '../dominio/excavacion'
@@ -16,6 +17,7 @@ const COLORES = {
   delgada: 0x8c7356, // parte de 10 cm de losa y firme
   afine: 0x4fc3f7, // fondo y taludes que se afinan
   plantilla: 0xc3ccd2, // plantilla de concreto en el fondo de la cepa
+  area: 0xa77bdb, // áreas de un concepto que se paga por superficie
 }
 const tipoDeRenglon = (f) => (/^Z/i.test(f.elemento) ? 'zapata' : 'trabe')
 const NOMBRE_TIPO = {
@@ -25,6 +27,7 @@ const NOMBRE_TIPO = {
   delgada: 'Losa 10 cm o firme',
   afine: 'Afine de fondo y taludes',
   plantilla: 'Plantilla de concreto',
+  area: 'Área',
 }
 
 /**
@@ -137,6 +140,34 @@ function etiqueta(texto, x, z) {
   return s
 }
 
+/** Suma de áreas: cada área con forma, como una lámina a su nivel (el fondo de su excavación o el terreno). */
+function piezasDeAreas(generadores = []) {
+  const piezas = []
+  let sinUbicar = 0
+  let area = 0
+  for (const g of generadores) {
+    if (g.tipo !== 'areas' || !g.datos?.areas) continue
+    const r = analizarAreas({ areas: g.datos.areas })
+    area += r.total
+    for (const f of r.filas) {
+      if (!f.valido || f.incluir === false) continue
+      if (!f.huella?.length) sinUbicar++
+      else
+        piezas.push({
+          huella: f.huella,
+          profundidad: (Number.isFinite(f.nivel) ? f.nivel : 0) + 0.02,
+          grosor: 0.02,
+          tipo: 'area',
+          nombre: f.descripcion || 'Área',
+          ubicacion: f.origen ? `De ${f.origen}` : '',
+          formula: `${fmt(f.area)} m²`,
+          concepto: g.concepto?.clave,
+        })
+    }
+  }
+  return { piezas, sinUbicar, area }
+}
+
 /** Plantilla: una placa del ancho del elemento + vuelo, en el fondo de la cepa, ubicada por ejes. */
 function piezasDePlantilla(generadores = [], ejes) {
   const piezas = []
@@ -191,20 +222,21 @@ function forma([contorno, ...huecos]) {
 export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
   const caja = useRef(null)
   const motor = useRef(null) // escena, cámara y lo dibujado; se crea una vez y se reusa
-  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true })
+  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true })
   const [sel, setSel] = useState(null) // clave de la pieza elegida con un clic
   const exc = useMemo(() => piezasDeExcavacion(generadores, ejes), [generadores, ejes])
   const afi = useMemo(() => piezasDeAfine(generadores, ejes, exc.huellas), [generadores, ejes, exc])
   const pla = useMemo(() => piezasDePlantilla(generadores, ejes), [generadores, ejes])
+  const are = useMemo(() => piezasDeAreas(generadores), [generadores])
   // lo que se dibuja; la clave identifica la pieza aunque se vuelva a calcular al capturar
   const todas = useMemo(() => {
     const vistas = {}
-    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : [])].map((p) => {
+    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
       const base = `${p.tipo}|${p.concepto}|${p.nombre}|${p.ubicacion}`
       const n = (vistas[base] = (vistas[base] ?? 0) + 1)
       return { ...p, clave: n > 1 ? `${base}|${n}` : base }
     })
-  }, [exc, afi, pla, ver.excavacion, ver.afine, ver.plantilla])
+  }, [exc, afi, pla, are, ver.excavacion, ver.afine, ver.plantilla, ver.areas])
 
   // 1) escena, cámara, controles y selección: una sola vez
   useEffect(() => {
@@ -345,7 +377,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       for (const e of hs) contenido.add(etiqueta(e.nombre, x1 - sobra - 0.6, -e.pos))
     }
     // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
-    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' ? 0.9 : conAfine ? 0.25 : 0.85)
+    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
     const agregar = (geo, pz) => {
       const malla = new THREE.Mesh(
         geo,
@@ -354,7 +386,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
           transparent: true,
           opacity: opacidad(pz.tipo),
           side: pz.tipo === 'afine' ? THREE.DoubleSide : THREE.FrontSide,
-          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || !conAfine,
+          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'area' || !conAfine,
         }),
       )
       malla.userData = { clave: pz.clave, tipo: pz.tipo }
@@ -446,6 +478,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
         {exc.volumen > 0 && casilla('excavacion', `Excavación ${fmt(exc.volumen)} m³`)}
         {afi.area > 0 && casilla('afine', `Afine ${fmt(afi.area)} m²`)}
         {pla.area > 0 && casilla('plantilla', `Plantilla ${fmt(pla.area)} m²`)}
+        {are.area > 0 && casilla('areas', `Áreas ${fmt(are.area)} m²`)}
         {terreno?.area > 0 && (
           <span className="num ml-auto text-xs text-cc-suave">
             Terreno {fmt(terreno.area)} m² · perímetro {fmt(terreno.perimetro)} m
@@ -467,6 +500,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
             {muestra(COLORES.delgada, 'Losa 10 cm y firme (0.10)')}
             {ver.afine && afi.piezas.length > 0 && muestra(COLORES.afine, 'Afine: fondo y taludes')}
             {ver.plantilla && pla.piezas.length > 0 && muestra(COLORES.plantilla, 'Plantilla de concreto')}
+            {ver.areas && are.piezas.length > 0 && muestra(COLORES.area, 'Áreas (membrana, firme…)')}
           </div>
         )}
         {elegida && <FichaPieza pieza={elegida} />}

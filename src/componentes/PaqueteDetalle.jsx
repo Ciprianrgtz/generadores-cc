@@ -334,6 +334,7 @@ const ANALISIS = {
   excavacion: { nombre: 'Excavación por elementos', detalle: 'Cepas de zapatas, trabes y todo lo que toca el suelo' },
   afine: { nombre: 'Afine de fondo y taludes', detalle: 'Fondo y paredes de las cepas de la excavación' },
   plantilla: { nombre: 'Plantilla bajo zapatas y trabes', detalle: 'ml de zapatas corridas y trabes de liga × ancho con vuelo' },
+  areas: { nombre: 'Suma de áreas', detalle: 'Membrana, afine para firme, firmes… se eligen las áreas que entran' },
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
@@ -342,7 +343,9 @@ const sugerido = (c) =>
     ? 'terreno'
     : /^plantilla/i.test(c.descripcion)
       ? 'plantilla'
-      : /^afine y compactaci[oó]n de fondo/i.test(c.descripcion)
+      : /membrana|afine.*firme|firme de concreto/i.test(c.descripcion)
+        ? 'areas'
+        : /^afine y compactaci[oó]n de fondo/i.test(c.descripcion)
       ? 'afine'
       : /^excavaci[oó]n/i.test(c.descripcion)
       ? 'excavacion'

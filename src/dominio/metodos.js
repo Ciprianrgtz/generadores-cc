@@ -82,6 +82,27 @@ export const METODOS = {
     ],
     criterios: 'Criterios editables en el análisis: vuelo de la plantilla por lado (0.05 m) y espesor para el dibujo (0.05 m).',
   },
+  areas: {
+    id: 'areas',
+    nombre: 'Suma de áreas',
+    aplica: 'Conceptos que se pagan por superficie: membrana bajo losa, afine para recibir firme, firme de concreto…',
+    unidad: 'm²',
+    pasos: [
+      'Se eligen las áreas que entran: superficies del análisis de excavación (losas, firmes), polígonos importados del DXF o áreas capturadas a mano.',
+      'De la excavación se toma el área dibujada completa de cada superficie, no la neta de excavación.',
+      'La cantidad es la suma de las áreas marcadas.',
+      'Se compara con la cantidad que trae Neodata.',
+    ],
+    criterios: 'Cada área se puede quitar, corregir o renombrar; las que tienen forma se dibujan en el modelo 3D.',
+  },
+}
+
+/** Resumen en una línea de un análisis de suma de áreas guardado. */
+export function origenAreas(datos) {
+  if (!datos?.areas) return null
+  const usadas = datos.areas.filter((a) => a.incluir !== false)
+  const de = [...new Set(usadas.map((a) => a.origen).filter(Boolean))]
+  return `${usadas.length} áreas${de.length ? ` (de ${de.join(', ')})` : ''}`
 }
 
 export const LISTA_METODOS = Object.values(METODOS)
