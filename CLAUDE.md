@@ -355,7 +355,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `excavacion` — Excavación por elementos | Excavación de cepas (CIM001) | Renglones por tramo de cada elemento que toca el suelo (eje, entre, largo, ancho total, desplante, piezas). Reglas abajo. |
 | `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
 | `plantilla` — Plantilla bajo zapatas y trabes | Plantilla de concreto (CIM003) | Toma los tramos de la excavación: ml de ZC y TL del plano × (ancho del elemento + 2 × vuelo). Vuelo editable. |
-| `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. **La membrana va solo en la losa de cimentación** (no bajo zapatas, trabes ni firmes). Bielva: las 3 losas completas suman 75.17 m² contra 50.58 de Neodata (pendiente: qué midió Neodata). |
+| `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. **La membrana va solo en la losa de cimentación** (no bajo zapatas, trabes ni firmes). Bielva: las 3 losas completas suman **75.17 m²**; Neodata trae 50.58 porque solo midió una franja (ver «Reglas de membrana»). |
 
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 
@@ -383,6 +383,14 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 - **Bielva** (`src/dominio/bielva/excavacion.js`, botón «Precargar cimentación de Bielva»): zapatas 21.66 ml × 0.90 × 0.85 (esquina X-08/Y-04 contada una vez), TL-1 8.62 ml × 0.45 × 0.30, bandas de losa 28.34 m² × 0.25, parte de 10 cm de losa y firme 60.66 m² × 0.10 → **30.88 m³** contra 31.13 de Neodata (−0.8 %). Áreas medidas en el DXF con un raster de 5 mm.
 - Cuando hay losa de cimentación, su parte de 10 cm hace de firme: en el presupuesto el firme de concreto se sustituye por el sistema de losa.
 - El **firme de concreto de 10 cm** va en toda el área interior de la casa y también se excava, por superficie: `Volumen = área × espesor`, sin sobreancho ni plantilla (sección «Superficies» del generador).
+
+### Reglas de membrana (Ciprian, 26-oct-2026)
+
+- La membrana lleva la **superficie completa de cada losa de cimentación** (CI y CC), dibujada de cara a cara. **Bielva: L1 18.95 + L2 21.93 + L3 34.29 = 75.17 m²** (a ejes serían 73.42).
+- **Diferencia con Neodata (50.58 m²), ya explicada**: Neodata midió solo una franja continua del lado Y-00: **L1 + firme X-05/X-06 + L2** (18.95 + 21.93 + 9.71 = 50.59) y se quedó **sin la losa central L3 (34.29 m²)** ni el firme de X-06 a X-08 / Y-03 a Y-04 (6.41). Dice 50.58 en la membrana (CIM003') y también en el afine para firme (EST13B'): el mismo número en dos conceptos.
+- **Decisión: el generador se queda en 75.17 m²**; el presupuesto de Neodata está corto unos 24.6 m² de membrana. Queda como nota del concepto (`paquete_conceptos.nota`) y se ve en «Cómo se genera el volumen».
+- **Pendiente**: el afine para recibir firme (EST13B') trae el mismo 50.58, que no es el área de firme; hay que decidir con la oficina cuál es su superficie correcta.
+- Las notas por concepto sirven para dejar por escrito por qué un generador difiere de Neodata.
 
 ### Reglas de afine (Ciprian, 26-oct-2026)
 

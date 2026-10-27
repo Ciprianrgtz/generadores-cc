@@ -47,6 +47,13 @@ export default function ComoSeGenera({ concepto, generador, terreno, compacto = 
         <p className="mt-2 text-xs text-cc-suave">Aún sin análisis: abre el análisis para capturar los datos y sacar el volumen.</p>
       )}
 
+      {concepto.nota && (
+        <p className="mt-2 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(49,130,206,0.10)', border: '1px solid rgba(49,130,206,0.3)', color: 'var(--cc-texto)' }}>
+          <b style={{ color: '#63b3ed' }}>Nota · </b>
+          {concepto.nota}
+        </p>
+      )}
+
       <details className="mt-2 text-xs text-cc-suave" open={!compacto}>
         <summary className="cursor-pointer select-none">Pasos del método</summary>
         <ol className="mt-2 grid gap-1.5">

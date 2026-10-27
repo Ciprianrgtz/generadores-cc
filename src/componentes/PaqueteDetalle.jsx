@@ -296,6 +296,7 @@ export default function PaqueteDetalle({ paqueteId, perfil, terreno, onEliminado
                           {fmt(c.cantidad ?? 0)}
                         </span>
                         <span className="num w-10 shrink-0 pt-0.5 text-xs text-cc-suave">{unidadTexto(c.unidad)}</span>
+                        {c.nota && <Chip color="azul" style={{ marginTop: 2 }}>Nota</Chip>}
                         <Chip color={ESTADOS[c.estado].color} style={{ marginTop: 2 }}>{ESTADOS[c.estado].nombre}</Chip>
                       </li>
                     )
@@ -356,6 +357,7 @@ const sugerido = (c) =>
 function PanelConcepto({ concepto, partida, puedeEscribir, terreno, hacer, onQuitado, onAbrirAnalisis }) {
   const [v, setV] = useState({ clave: concepto.clave, descripcion: concepto.descripcion, unidad: concepto.unidad })
   const [gen, setGen] = useState(null) // análisis ya guardado de este concepto
+  const [nota, setNota] = useState(concepto.nota ?? '')
   useEffect(() => {
     let vivo = true
     proy.generador(concepto.id).then((g) => vivo && setGen(g)).catch(() => {})
@@ -391,6 +393,17 @@ function PanelConcepto({ concepto, partida, puedeEscribir, terreno, hacer, onQui
             {gen ? 'Abrir el análisis' : 'Hacer el análisis'}
           </Boton>
         </div>
+      </div>
+      <div className="grid gap-2">
+        <Campo etiqueta="Nota del concepto (por ejemplo, por qué difiere de Neodata)">
+          <AreaTexto value={nota} rows={3} disabled={!puedeEscribir} onChange={(e) => setNota(e.target.value)} style={{ lineHeight: 1.4 }} />
+        </Campo>
+        {puedeEscribir && nota !== (concepto.nota ?? '') && (
+          <div className="flex gap-2">
+            <Boton variante="pri" onClick={() => hacer(() => repo.guardarNota(concepto.id, nota))}>Guardar nota</Boton>
+            <Boton onClick={() => setNota(concepto.nota ?? '')}>Deshacer</Boton>
+          </div>
+        )}
       </div>
       <Seccion>{partida?.clave} · concepto del paquete (editable)</Seccion>
       <div className="grid grid-cols-[1fr_88px] gap-2">

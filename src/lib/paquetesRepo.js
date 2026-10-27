@@ -137,6 +137,8 @@ export async function paquete(id) {
 
 export const moverConcepto = async (id, dir) => ok(await supabase.rpc('mover_paquete_concepto', { p_id: id, p_dir: dir }))
 export const moverPartida = async (id, dir) => ok(await supabase.rpc('mover_paquete_partida', { p_id: id, p_dir: dir }))
+/** Nota libre de un concepto del paquete (por qué difiere de Neodata, criterio usado…). Vacía = sin nota. */
+export const guardarNota = async (id, nota) => ok(await supabase.from('paquete_conceptos').update({ nota: nota.trim() || null }).eq('id', id))
 export const cambiarEstadoConcepto = async (id, estado) => ok(await supabase.from('paquete_conceptos').update({ estado }).eq('id', id))
 export const quitarConcepto = async (id) => ok(await supabase.from('paquete_conceptos').delete().eq('id', id))
 export const quitarPartida = async (id) => ok(await supabase.from('paquete_partidas').delete().eq('id', id))
