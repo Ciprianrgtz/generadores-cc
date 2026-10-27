@@ -7,6 +7,7 @@ import { botones } from '../lib/ui'
 import EjesProyecto from './EjesProyecto'
 import GeneradorAfine from './GeneradorAfine'
 import GeneradorExcavacion from './GeneradorExcavacion'
+import GeneradorPlantilla from './GeneradorPlantilla'
 import GeneradorTerreno from './GeneradorTerreno'
 import PaqueteDetalle from './PaqueteDetalle'
 import Visor3D from './Visor3D'
@@ -84,6 +85,15 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               concepto={analisis}
               ejes={ejesVivos}
               proyecto={proy}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
+            />
+          ) : analisis?.analisis_tipo === 'plantilla' ? (
+            <GeneradorPlantilla
+              concepto={analisis}
+              generadores={generadores}
               puedeEscribir={puedeEscribir}
               onGuardado={cargar}
               onVolver={cerrarAnalisis}

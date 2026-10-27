@@ -333,13 +333,16 @@ const ANALISIS = {
   zapata_corrida: { nombre: 'Zapata corrida (ficha de acero)', detalle: 'Acero de la parrilla por metro lineal' },
   excavacion: { nombre: 'Excavación por elementos', detalle: 'Cepas de zapatas, trabes y todo lo que toca el suelo' },
   afine: { nombre: 'Afine de fondo y taludes', detalle: 'Fondo y paredes de las cepas de la excavación' },
+  plantilla: { nombre: 'Plantilla bajo zapatas y trabes', detalle: 'ml de zapatas corridas y trabes de liga × ancho con vuelo' },
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
 const sugerido = (c) =>
   /limpia y despalme|trazo y nivelaci[oó]n/i.test(c.descripcion)
     ? 'terreno'
-    : /^afine y compactaci[oó]n de fondo/i.test(c.descripcion)
+    : /^plantilla/i.test(c.descripcion)
+      ? 'plantilla'
+      : /^afine y compactaci[oó]n de fondo/i.test(c.descripcion)
       ? 'afine'
       : /^excavaci[oó]n/i.test(c.descripcion)
       ? 'excavacion'

@@ -354,6 +354,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `zapata_corrida` — Acero de la parrilla | Acero de ZC-01, ZC-02… | Ficha por 1.00 ml (sección 13, método CIM05B), con versiones y flujo Borrador → Revisado → Aprobado y esquema interactivo en planta e isométrico. |
 | `excavacion` — Excavación por elementos | Excavación de cepas (CIM001) | Renglones por tramo de cada elemento que toca el suelo (eje, entre, largo, ancho total, desplante, piezas). Reglas abajo. |
 | `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
+| `plantilla` — Plantilla bajo zapatas y trabes | Plantilla de concreto (CIM003) | Toma los tramos de la excavación: ml de ZC y TL del plano × (ancho del elemento + 2 × vuelo). Vuelo editable. |
 
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 
@@ -391,7 +392,13 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 
 Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dominio/` con pruebas, su pantalla en `src/componentes/`, y **ampliar el check `paquete_conceptos_analisis_tipo_check`** con una migración nueva.
 
-### Base de datos (migraciones 0001–0007)
+### Reglas de plantilla (Ciprian, 26-oct-2026)
+
+- La plantilla se calcula con los **ml de zapatas corridas y de trabes de liga** del plano: `ml × (ancho del elemento + 2 × vuelo)`.
+- El **vuelo** (lo que sobresale por lado) es criterio editable; en el corte de la ZC-1 se ve de unos 5 cm. **Pendiente**: confirmar el ancho con el que Neodata llega a 23.58 (con vuelo 0.05: ZC 22.56 × 0.90 + TL 8.62 × 0.35 = 23.32; Neodata trae TL-1 de 8.97 ml contra 8.62 medidos en el DXF).
+- La losa de cimentación no lleva plantilla.
+
+### Base de datos (migraciones 0001–0008)
 
 | Migración | Contenido |
 |---|---|
@@ -402,6 +409,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 | 0005 | Permite el método `excavacion` en `analisis_tipo`. |
 | 0006 | Permite el método `afine` en `analisis_tipo`. |
 | 0007 | `proyectos.ejes`: ejes del proyecto (verticales, horizontales y origen en el DXF). |
+| 0008 | Permite el método `plantilla` en `analisis_tipo`. |
 
 - Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
 - Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).

@@ -33,6 +33,7 @@ Las migraciones están en `supabase/migrations/` y se ejecutan en orden en Supab
 | `0005_metodo_excavacion.sql` | Habilita el método de excavación por elementos |
 | `0006_metodo_afine.sql` | Habilita el método de afine de fondo y taludes |
 | `0007_ejes_del_proyecto.sql` | Ejes del proyecto: sistema de coordenadas de la obra |
+| `0008_metodo_plantilla.sql` | Habilita el método de plantilla bajo zapatas y trabes de liga |
 
 ## Usuarios
 

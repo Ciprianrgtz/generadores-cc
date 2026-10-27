@@ -68,9 +68,31 @@ export const METODOS = {
     ],
     criterios: 'Se puede quitar una cepa o corregir sus ml; si la excavación cambia, se vuelven a tomar las cepas.',
   },
+  plantilla: {
+    id: 'plantilla',
+    nombre: 'Plantilla bajo zapatas y trabes',
+    aplica: 'Plantilla de concreto simple bajo zapatas corridas y trabes de liga (CIM003).',
+    unidad: 'm²',
+    pasos: [
+      'Los tramos salen del análisis de excavación guardado: entran solos los de zapata corrida (ZC) y trabe de liga (TL); otros se agregan con su casilla.',
+      'Se usan los ml del elemento del plano.',
+      'Área de cada tramo = ml × (ancho del elemento + 2 × vuelo), con el vuelo que la plantilla sobresale por lado.',
+      'La losa de cimentación no lleva plantilla: la sustituye un plástico o membrana.',
+      'Se compara con la cantidad que trae Neodata.',
+    ],
+    criterios: 'Criterios editables en el análisis: vuelo de la plantilla por lado (0.05 m) y espesor para el dibujo (0.05 m).',
+  },
 }
 
 export const LISTA_METODOS = Object.values(METODOS)
+
+/** Resumen en una línea de un análisis de plantilla guardado. */
+export function origenPlantilla(datos) {
+  if (!datos?.tramos) return null
+  const usados = datos.tramos.filter((t) => t.incluir !== false)
+  const tipos = [...new Set(usados.map((t) => (t.elemento || '').trim()).filter(Boolean))]
+  return `${usados.length} tramos (${tipos.join(', ')}) · vuelo ${datos.criterios?.vuelo ?? '—'} m${datos.origen?.concepto ? ` · de la excavación ${datos.origen.concepto}` : ''}`
+}
 
 /** Resumen en una línea de un análisis de afine guardado. */
 export function origenAfine(datos) {
