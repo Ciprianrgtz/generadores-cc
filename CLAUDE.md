@@ -355,7 +355,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `excavacion` — Excavación por elementos | Excavación de cepas (CIM001) | Renglones por tramo de cada elemento que toca el suelo (eje, entre, largo, ancho total, desplante, piezas). Reglas abajo. |
 | `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
 | `plantilla` — Plantilla bajo zapatas y trabes | Plantilla de concreto (CIM003) | Toma los tramos de la excavación: ml de ZC y TL del plano × (ancho del elemento + 2 × vuelo). Vuelo editable. |
-| `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. Pendiente en Bielva: de dónde salen los 50.58 m² de la membrana (las 3 losas completas suman 75.17; la parte de 10 cm, 44.54). |
+| `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. **La membrana va solo en la losa de cimentación** (no bajo zapatas, trabes ni firmes). Bielva: las 3 losas completas suman 75.17 m² contra 50.58 de Neodata (pendiente: qué midió Neodata). |
 
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 
