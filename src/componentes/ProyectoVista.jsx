@@ -8,6 +8,7 @@ import EjesProyecto from './EjesProyecto'
 import GeneradorAfine from './GeneradorAfine'
 import GeneradorAreas from './GeneradorAreas'
 import GeneradorExcavacion from './GeneradorExcavacion'
+import GeneradorLongitud from './GeneradorLongitud'
 import GeneradorPlantilla from './GeneradorPlantilla'
 import GeneradorTerreno from './GeneradorTerreno'
 import PaqueteDetalle from './PaqueteDetalle'
@@ -100,6 +101,14 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               onGuardado={cargar}
               onVolver={cerrarAnalisis}
               onCapturar={alCapturar}
+            />
+          ) : analisis?.analisis_tipo === 'longitud' ? (
+            <GeneradorLongitud
+              concepto={analisis}
+              generadores={generadores}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={cerrarAnalisis}
             />
           ) : analisis?.analisis_tipo === 'plantilla' ? (
             <GeneradorPlantilla

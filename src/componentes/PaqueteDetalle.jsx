@@ -336,13 +336,16 @@ const ANALISIS = {
   afine: { nombre: 'Afine de fondo y taludes', detalle: 'Fondo y paredes de las cepas de la excavación' },
   plantilla: { nombre: 'Plantilla bajo zapatas y trabes', detalle: 'ml de zapatas corridas y trabes de liga × ancho con vuelo' },
   areas: { nombre: 'Suma de áreas', detalle: 'Membrana, afine para firme, firmes… se eligen las áreas que entran' },
+  longitud: { nombre: 'Longitud de elementos', detalle: 'Cimbra de zapatas corridas, de trabes de liga… por metro lineal' },
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
 const sugerido = (c) =>
   /limpia y despalme|trazo y nivelaci[oó]n/i.test(c.descripcion)
     ? 'terreno'
-    : /^plantilla/i.test(c.descripcion)
+    : /^cimbrado de (zapatas|contra\s?trabe|trabes?)/i.test(c.descripcion)
+      ? 'longitud'
+      : /^plantilla/i.test(c.descripcion)
       ? 'plantilla'
       : /membrana|afine.*firme|firme de concreto/i.test(c.descripcion)
         ? 'areas'

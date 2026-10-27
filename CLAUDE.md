@@ -356,6 +356,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `afine` — Afine de fondo y taludes | Afine y compactación (CIM002) | Toma las cepas del análisis de excavación guardado: ml del elemento × (ancho cepa + 2 × profundidad cepa). Reglas abajo. |
 | `plantilla` — Plantilla bajo zapatas y trabes | Plantilla de concreto (CIM003) | Toma los tramos de la excavación: ml de ZC y TL del plano × (ancho del elemento + 2 × vuelo). Vuelo editable. |
 | `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. **La membrana va solo en la losa de cimentación** (no bajo zapatas, trabes ni firmes). Bielva: las 3 losas completas suman **75.17 m²**; Neodata trae 50.58 porque solo midió una franja (ver «Reglas de membrana»). |
+| `longitud` — Longitud de elementos | Cimbra de zapatas corridas (CIM004), de trabes de liga (CIM22D')… | Suma de los ml del elemento del plano que entran (tramos de la excavación, o agregados a mano) por sus piezas. Bielva: ZC = 22.56 ml (igual que Neodata); TL-1 = 8.62 ml (Neodata trae 8.97). |
 
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 
@@ -407,7 +408,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 - El **vuelo** (lo que sobresale por lado) es criterio editable; en el corte de la ZC-1 se ve de unos 5 cm. **Pendiente**: confirmar el ancho con el que Neodata llega a 23.58 (con vuelo 0.05: ZC 22.56 × 0.90 + TL 8.62 × 0.35 = 23.32; Neodata trae TL-1 de 8.97 ml contra 8.62 medidos en el DXF).
 - La losa de cimentación no lleva plantilla.
 
-### Base de datos (migraciones 0001–0009)
+### Base de datos (migraciones 0001–0010)
 
 | Migración | Contenido |
 |---|---|
@@ -420,6 +421,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 | 0007 | `proyectos.ejes`: ejes del proyecto (verticales, horizontales y origen en el DXF). |
 | 0008 | Permite el método `plantilla` en `analisis_tipo`. |
 | 0009 | Permite el método `areas` en `analisis_tipo`. |
+| 0010 | Permite el método `longitud` en `analisis_tipo`. |
 
 - Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
 - Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).

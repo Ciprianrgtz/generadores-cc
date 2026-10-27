@@ -1,4 +1,4 @@
-import { METODOS, origenAfine, origenAreas, origenExcavacion, origenPlantilla, origenTerreno } from '../dominio/metodos'
+import { METODOS, origenAfine, origenAreas, origenExcavacion, origenLongitud, origenPlantilla, origenTerreno } from '../dominio/metodos'
 import { fmt, unidadTexto } from '../dominio/redondeo'
 import { Seccion } from './ui'
 
@@ -35,6 +35,7 @@ export default function ComoSeGenera({ concepto, generador, terreno, compacto = 
           {concepto.analisis_tipo === 'afine' && <p className="mt-1 text-xs text-cc-suave">{origenAfine(generador.datos)}</p>}
           {concepto.analisis_tipo === 'plantilla' && <p className="mt-1 text-xs text-cc-suave">{origenPlantilla(generador.datos)}</p>}
           {concepto.analisis_tipo === 'areas' && <p className="mt-1 text-xs text-cc-suave">{origenAreas(generador.datos)}</p>}
+          {concepto.analisis_tipo === 'longitud' && <p className="mt-1 text-xs text-cc-suave">{origenLongitud(generador.datos)}</p>}
           <p className="num mt-1 text-sm">
             Volumen: <b style={{ color: '#3ddba6' }}>{fmt(generador.cantidad)} {unidad}</b>
           </p>

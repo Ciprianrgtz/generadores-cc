@@ -95,6 +95,21 @@ export const METODOS = {
     ],
     criterios: 'Cada área se puede quitar, corregir o renombrar; las que tienen forma se dibujan en el modelo 3D.',
   },
+  longitud: {
+    id: 'longitud',
+    nombre: 'Longitud de elementos',
+    aplica: 'Conceptos que se pagan por metro lineal de un elemento del plano: cimbra de zapatas corridas, de trabes de liga, dalas…',
+    unidad: 'ml',
+    pasos: [
+      'Los tramos salen del análisis de excavación guardado: cada elemento que toca el suelo con su eje, entre qué ejes y sus ml del plano.',
+      'Se marca qué elementos entran en este concepto: la cimbra de zapatas corridas lleva solo ZC; la de trabes de liga, solo TL.',
+      'Se usan los ml del elemento del plano: en una esquina el tramo cuenta completo en los dos lados.',
+      'La cantidad es la suma de los ml de los tramos marcados por sus piezas.',
+      'Un elemento que no esté en la excavación (una contratrabe dentro de la cepa, una dala) se agrega a mano con su ml.',
+      'Se compara con la cantidad que trae Neodata.',
+    ],
+    criterios: 'Sin criterios propios: solo qué tramos entran. Si la excavación cambia, se vuelven a tomar los tramos.',
+  },
 }
 
 /** Resumen en una línea de un análisis de suma de áreas guardado. */
@@ -106,6 +121,14 @@ export function origenAreas(datos) {
 }
 
 export const LISTA_METODOS = Object.values(METODOS)
+
+/** Resumen en una línea de un análisis de longitud guardado. */
+export function origenLongitud(datos) {
+  if (!datos?.tramos) return null
+  const usados = datos.tramos.filter((t) => t.incluir !== false)
+  const tipos = [...new Set(usados.map((t) => (t.elemento || '').trim()).filter(Boolean))]
+  return `${usados.length} tramos (${tipos.join(', ') || 'sin tipo'})${datos.origen?.concepto ? ` · de la excavación ${datos.origen.concepto}` : ''}`
+}
 
 /** Resumen en una línea de un análisis de plantilla guardado. */
 export function origenPlantilla(datos) {

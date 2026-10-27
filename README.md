@@ -35,6 +35,7 @@ Las migraciones están en `supabase/migrations/` y se ejecutan en orden en Supab
 | `0007_ejes_del_proyecto.sql` | Ejes del proyecto: sistema de coordenadas de la obra |
 | `0008_metodo_plantilla.sql` | Habilita el método de plantilla bajo zapatas y trabes de liga |
 | `0009_metodo_areas.sql` | Habilita el método de suma de áreas (membrana, afine para firme, firmes) |
+| `0010_metodo_longitud.sql` | Habilita el método de longitud de elementos (cimbra de zapatas y de trabes de liga) |
 
 ## Usuarios
 

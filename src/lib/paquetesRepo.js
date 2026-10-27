@@ -10,9 +10,12 @@ const ok = ({ data, error }) => {
 
 // Si la migración 0003 aún no se corrió, las tablas no existen: se explica en vez de mostrar un error crudo.
 export function mensajeError(e) {
-  return /does not exist|schema cache|could not find/i.test(e.message ?? '')
+  const m = e.message ?? ''
+  // un método de análisis nuevo se habilita con su migración: sin ella la base rechaza el valor
+  if (/analisis_tipo_check/i.test(m)) return 'Ese método todavía no está habilitado en tu base: falta correr la migración más reciente de supabase/migrations en Supabase → SQL Editor.'
+  return /does not exist|schema cache|could not find/i.test(m)
     ? 'Falta correr la migración 0003 (supabase/migrations/0003_catalogo_y_paquetes.sql) en Supabase → SQL Editor.'
-    : e.message
+    : m
 }
 
 // ---------------------------------------------------------------- catálogo
