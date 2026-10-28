@@ -412,8 +412,9 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 ### Reglas de acero por ficha (Ciprian, 28-oct-2026)
 
 - El acero se calcula **por 1.00 ml** (kg/ml de la ficha) y **después se multiplica por los ml del elemento**, también en piezas de menos de 1 m.
-- **ZC-02 (CIM06D'): Neodata 5.69 contra 6.11 del generador, ya explicada.** En la hoja CIM06B de la plantilla, Neodata calculó el acero de la **pieza completa de 0.85 m** (5 varillas en el sentido corto, 6 en el largo de `(0.85 − 0.02) + 0.18 = 1.01 m`; 6.689 kg) y luego lo **multiplicó otra vez por 0.85** (`I114 = F114 × I113`). En CIM05B el total sí era por metro. Con 5 y 5 varillas la pieza da 6.11 kg, igual que la ficha. El sentido largo trae 6 varillas donde 0.80 m @ 0.20 da 5: por confirmar si fue a propósito.
-- **Decisión: el generador se queda en 6.11 kg.** Queda como nota de CIM06D'.
+- **ZC-02 (CIM06D'): Neodata 5.69 contra 6.11 del generador, ya explicada.** En la hoja CIM06B de la plantilla, Neodata calculó el acero de la **pieza completa de 0.85 m** (5 varillas de 1.12 m en el sentido corto y 6 de `(0.85 − 0.02) + 0.18 = 1.01 m` en el largo; 6.689 kg) y luego lo **multiplicó otra vez por 0.85** (`I114 = F114 × I113`). En CIM05B el total sí era por metro.
+- **Número de varillas** = distancia ÷ separación **+ 1**, redondeado hacia arriba: corto 0.85 ÷ 0.20 + 1 = 5.25 → **6**; largo 0.80 ÷ 0.20 + 1 = **5**. Neodata tiene el 5 y el 6 en las filas contrarias (probable error de captura). Con 6 × 1.12 m y 5 × 1.01 m la pieza completa da **6.75 kg**; por metro (ficha) × 0.85 ml da 6.11 kg. La diferencia de 0.64 kg es la del despiece real contra el análisis por metro (sección 7).
+- **Decisión: el generador se queda en 6.11 kg** (por 1.00 ml × ml del elemento). Queda como nota de CIM06D'.
 
 ### Base de datos (migraciones 0001–0011)
 
