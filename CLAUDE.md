@@ -357,7 +357,7 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `plantilla` — Plantilla bajo zapatas y trabes | Plantilla de concreto (CIM003) | Toma los tramos de la excavación: ml de ZC y TL del plano × (ancho del elemento + 2 × vuelo). Vuelo editable. |
 | `areas` — Suma de áreas | Membrana (CIM003'), afine para firme (EST13B'), firmes | Se eligen áreas: superficies de la excavación (área dibujada completa), polígonos del DXF o a mano. **La membrana va solo en la losa de cimentación** (no bajo zapatas, trabes ni firmes). Bielva: las 3 losas completas suman **75.17 m²**; Neodata trae 50.58 porque solo midió una franja (ver «Reglas de membrana»). |
 | `longitud` — Longitud de elementos | Cimbra de zapatas corridas (CIM004), de trabes de liga (CIM22D')… | Suma de los ml del elemento del plano que entran (tramos de la excavación, o agregados a mano) por sus piezas. Bielva: ZC = 22.56 ml (igual que Neodata); TL-1 = 8.62 ml (Neodata trae 8.97). Se dibuja en el 3D como las dos fronteras laterales de cada tramo (ancho del elemento, sin sobreancho) sobre su desplante; el alto de la frontera es un criterio editable solo de dibujo (0.20 por defecto) y no cambia la cantidad. |
-| `acero_ficha` — Acero por ficha | Acero de ZC-01 (CIM05D'), ZC-02 (CIM06D') y de cualquier tipo nuevo de zapata; luego trabes, losas y castillos cuando tengan ficha | Σ ml del elemento (tramos de la excavación o a mano) × kg/ml de la última versión de su ficha. La separación, los números de varilla por sentido, el recubrimiento, los ganchos y el desperdicio viven en la ficha; un tipo nuevo solo necesita su ficha (botón «+ Nuevo tipo» en la ficha de zapata, que copia sección y armado). Guarda también el desglose por diámetro. Avisa si la ficha no está aprobada o cambió después de guardar. Bielva: ZC-01 = 21.71 ml × 7.182849 = 155.94 kg (igual que Neodata); ZC-02 = 0.85 ml × 7.182849 = 6.11 kg contra 5.69 de Neodata (≈ 0.79 ml con el mismo armado: por aclarar). |
+| `acero_ficha` — Acero por ficha | Acero de ZC-01 (CIM05D'), ZC-02 (CIM06D') y de cualquier tipo nuevo de zapata; luego trabes, losas y castillos cuando tengan ficha | Σ ml del elemento (tramos de la excavación o a mano) × kg/ml de la última versión de su ficha. La separación, los números de varilla por sentido, el recubrimiento, los ganchos y el desperdicio viven en la ficha; un tipo nuevo solo necesita su ficha (botón «+ Nuevo tipo» en la ficha de zapata, que copia sección y armado). Guarda también el desglose por diámetro. Avisa si la ficha no está aprobada o cambió después de guardar. Bielva: ZC-01 = 21.71 ml × 7.182849 = 155.94 kg (igual que Neodata); ZC-02 = 0.85 ml × 7.182849 = 6.11 kg contra 5.69 de Neodata, que se explica en «Reglas de acero por ficha». |
 
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 
@@ -408,6 +408,12 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 - La plantilla se calcula con los **ml de zapatas corridas y de trabes de liga** del plano: `ml × (ancho del elemento + 2 × vuelo)`.
 - El **vuelo** (lo que sobresale por lado) es criterio editable; en el corte de la ZC-1 se ve de unos 5 cm. **Pendiente**: confirmar el ancho con el que Neodata llega a 23.58 (con vuelo 0.05: ZC 22.56 × 0.90 + TL 8.62 × 0.35 = 23.32; Neodata trae TL-1 de 8.97 ml contra 8.62 medidos en el DXF).
 - La losa de cimentación no lleva plantilla.
+
+### Reglas de acero por ficha (Ciprian, 28-oct-2026)
+
+- El acero se calcula **por 1.00 ml** (kg/ml de la ficha) y **después se multiplica por los ml del elemento**, también en piezas de menos de 1 m.
+- **ZC-02 (CIM06D'): Neodata 5.69 contra 6.11 del generador, ya explicada.** En la hoja CIM06B de la plantilla, Neodata calculó el acero de la **pieza completa de 0.85 m** (5 varillas en el sentido corto, 6 en el largo de `(0.85 − 0.02) + 0.18 = 1.01 m`; 6.689 kg) y luego lo **multiplicó otra vez por 0.85** (`I114 = F114 × I113`). En CIM05B el total sí era por metro. Con 5 y 5 varillas la pieza da 6.11 kg, igual que la ficha. El sentido largo trae 6 varillas donde 0.80 m @ 0.20 da 5: por confirmar si fue a propósito.
+- **Decisión: el generador se queda en 6.11 kg.** Queda como nota de CIM06D'.
 
 ### Base de datos (migraciones 0001–0011)
 

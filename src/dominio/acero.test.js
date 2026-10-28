@@ -39,7 +39,7 @@ describe('Acero por ficha (kg)', () => {
     expect(r.porDiametro['3']).toBeCloseTo(155.94, 1)
   })
 
-  it('Bielva: ZC-02 son 0.85 ml del DXF = 6.11 kg (Neodata trae 5.69, que serían 0.79 ml)', () => {
+  it('Bielva: ZC-02 son 0.85 ml del DXF = 6.11 kg (Neodata trae 5.69 porque multiplica por 0.85 un cálculo que ya era de la pieza)', () => {
     const tramos = tramosDeElemento(excavacion, 'ZC-02')
     const r = analizarAcero({ tramos, ficha: resumenDeFicha(fichaGuardada(zc01)) })
     expect(r.ml).toBeCloseTo(0.85, 10)
