@@ -7,6 +7,7 @@ import { botones } from '../lib/ui'
 import EjesProyecto from './EjesProyecto'
 import GeneradorAfine from './GeneradorAfine'
 import GeneradorAreas from './GeneradorAreas'
+import GeneradorBastones from './GeneradorBastones'
 import GeneradorAcero from './GeneradorAcero'
 import GeneradorExcavacion from './GeneradorExcavacion'
 import GeneradorLongitud from './GeneradorLongitud'
@@ -113,6 +114,14 @@ export default function ProyectoVista({ proyectoId, perfil, onVolver, onAbrirZap
               onVolver={cerrarAnalisis}
               onCapturar={alCapturar}
               onAbrirFicha={onAbrirZapata}
+            />
+          ) : analisis?.analisis_tipo === 'bastones' ? (
+            <GeneradorBastones
+              concepto={analisis}
+              puedeEscribir={puedeEscribir}
+              onGuardado={cargar}
+              onVolver={cerrarAnalisis}
+              onCapturar={alCapturar}
             />
           ) : analisis?.analisis_tipo === 'longitud' ? (
             <GeneradorLongitud

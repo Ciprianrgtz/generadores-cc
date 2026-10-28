@@ -359,6 +359,8 @@ PROYECTO → su paquete de generadores (1 por proyecto)
 | `longitud` — Longitud de elementos | Cimbra de zapatas corridas (CIM004), de trabes de liga (CIM22D')… | Suma de los ml del elemento del plano que entran (tramos de la excavación, o agregados a mano) por sus piezas. Bielva: ZC = 22.56 ml (igual que Neodata); TL-1 = 8.62 ml (Neodata trae 8.97). Se dibuja en el 3D como las dos fronteras laterales de cada tramo (ancho del elemento, sin sobreancho) sobre su desplante; el alto de la frontera es un criterio editable solo de dibujo (0.20 por defecto) y no cambia la cantidad. |
 | `acero_ficha` — Acero por ficha | Acero de ZC-01 (CIM05D'), ZC-02 (CIM06D') y de cualquier tipo nuevo de zapata; luego trabes, losas y castillos cuando tengan ficha | Σ ml del elemento (tramos de la excavación o a mano) × kg/ml de la última versión de su ficha. La separación, los números de varilla por sentido, el recubrimiento, los ganchos y el desperdicio viven en la ficha; un tipo nuevo solo necesita su ficha (botón «+ Nuevo tipo» en la ficha de zapata, que copia sección y armado). Guarda también el desglose por diámetro. Avisa si la ficha no está aprobada o cambió después de guardar. Bielva: ZC-01 = 21.71 ml × 7.182849 = 155.94 kg (igual que Neodata); ZC-02 = 0.85 ml × 7.182849 = 6.11 kg contra 5.69 de Neodata, que se explica en «Reglas de acero por ficha». |
 
+| `bastones` — Bastones de losa de cimentación | Acero de CC (CIM07D') y CI (CIM08D') | Franjas de la losa, cada una con su largo de bastón (claro ÷ 4, redondeado a una medida práctica) y sus ml: kg = ml × varillas por metro (8, redondeado hacia arriba) × (largo + escuadra de 5 cm) × kg/m × (1 + desperdicio). Las franjas con el mismo largo forman un tipo (CC-1, CC-2…; CI-1…). Se importan de los rectángulos del DXF (por capa y color: cian = CC, azul = CI) o se capturan a mano; criterios editables. Ver «Reglas de bastones de losa». |
+
 ### Ejes del proyecto y dibujo en tiempo real (principios 11 y 12)
 
 - Los **ejes** (`proyectos.ejes`) son el sistema de coordenadas de la obra, en metros: `verticales` (posición x) y `horizontales` (posición y), más `origen_dxf` (dónde cae el 0,0 en el DXF). Se importan del DXF desde la tarjeta «Ejes del proyecto» (`src/dominio/ejes.js` → `leerEjesDxf`: cada etiqueta de eje se asigna a la línea de una capa «eje» que remata junto a ella; las líneas que se cruzan forman una planta) o se capturan a mano. Bielva: Y-00 0 · Y-01 1.07 · Y-02 3.27 · Y-03 4.35 · Y-04 7.00; X-00 0 … X-08 20.00.
@@ -416,7 +418,19 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 - **Número de varillas** = distancia ÷ separación **+ 1**, redondeado hacia arriba: corto 0.85 ÷ 0.20 + 1 = 5.25 → **6**; largo 0.80 ÷ 0.20 + 1 = **5**. Neodata tiene el 5 y el 6 en las filas contrarias (probable error de captura). Con 6 × 1.12 m y 5 × 1.01 m la pieza completa da **6.75 kg**; por metro (ficha) × 0.85 ml da 6.11 kg. La diferencia de 0.64 kg es la del despiece real contra el análisis por metro (sección 7).
 - **Decisión: el generador se queda en 6.11 kg** (por 1.00 ml × ml del elemento). Queda como nota de CIM06D'.
 
-### Base de datos (migraciones 0001–0011)
+### Reglas de bastones de losa de cimentación (Ciprian, 28-oct-2026)
+
+- La losa de cimentación lleva en el estructural **malla electrosoldada 6x6-6/6 en el lecho superior** y **bayonetas por debajo**. En obra no se colocan bayonetas: se dejan **bastones**, parecidos a los de las zapatas. Lo que se cuantifica aquí son los bastones; la malla es otro concepto.
+- Cada bastón mide **claro ÷ 4** por cada cara de cada espacio que lo requiera (un cuarto de 4 × 4 m lleva bastones de 1.00 m en cada una de sus 4 caras). **En CC (borde) y CI (interior)** se distinguen en el estructural: «bastón en extremo» y «bastón en interior».
+- **Medidas prácticas**: en obra no se cortan al milímetro, así que los largos se unifican a 1.1 o 1.05 en lugar de 1.0387, y se agrupan en pocos tipos. En Bielva salen **9 tipos CC** (0.85 · 1.15 · 0.55 · 1.25 · 1.00 · 0.65 · 0.60 · 0.30 · 0.20) y **7 tipos CI** (1.40 · 1.20 · 1.65 · 1.85 · 1.30 · 1.05 · 0.69).
+- **Las zonas están dibujadas en el DXF estructural** como rectángulos cerrados en la capa 0 (cian = CC, azul = CI), en tres copias de la planta iguales; cada rectángulo trae el largo del bastón en un lado y los ml de la franja en el otro. Los ml por tipo reproducen exactamente los de Neodata (CC-1 = 4.44 + 1.67 + 1.67 + 3.28 = 11.06 ml…; CC 46.75 ml, CI 15.79 ml). Un rectángulo casi cuadrado (CI-3 de 1.08 × 1.65, CI-6 de 1.07 × 1.05) no dice cuál lado es el bastón: la pantalla lo marca «revisar lado» y se corrige con ⟲.
+- Por metro de franja: varillas #3 @ 15. **Decisión (Ciprian, 28-oct-2026): 8 varillas por metro** = 1.00 ÷ 0.15 + 1 = 7.67, **redondeado hacia arriba** (Neodata tiene 7 capturadas a mano). Los criterios siguen editables: separación, sumar una, redondear, o capturar el número.
+- **Escuadra a 90° de 5 cm** en cada bastón; se suma al largo (Neodata no la cuenta). Queda como criterio: largo de la escuadra y escuadras por bastón (1).
+- **CI (intermedia)**: el bastón cubre **los dos claros**, con el claro ÷ 4 hacia cada habitación. El rectángulo dibujado ya abarca ambos lados, así que su largo es el del bastón completo y no se duplica.
+- **Neodata con sus propios datos** (7 varillas por metro, sin escuadra): kg por tipo = ml × 7 × largo × 0.557 × 1.03 da **CC 168.92 kg** y **CI 91.47 kg**. El total de Neodata (171.72 y 94.97) sale de una columna M con valores capturados a mano y multiplicados otra vez por 1.03, aunque el kg/ml ya traía el desperdicio. El generador usa el desperdicio una sola vez.
+- Para ubicar las zonas en el 3D, el origen del proyecto (Y-00 / X-00) en esa copia se sugiere con el borde izquierdo de las zonas y la planta de ejes más cercana, y es editable.
+
+### Base de datos (migraciones 0001–0012)
 
 | Migración | Contenido |
 |---|---|
@@ -431,6 +445,7 @@ Para agregar un método: definirlo en `metodos.js`, su cálculo puro en `src/dom
 | 0009 | Permite el método `areas` en `analisis_tipo`. |
 | 0010 | Permite el método `longitud` en `analisis_tipo`. |
 | 0011 | Permite el método `acero_ficha` en `analisis_tipo`. |
+| 0012 | Permite el método `bastones` en `analisis_tipo`. |
 
 - Usuarios: se dan de alta en Supabase → Authentication (registro público desactivado).
 - Golden tests: `npm test` (zapata corrida 155.94 kg, lectura del catálogo de Neodata, terreno).

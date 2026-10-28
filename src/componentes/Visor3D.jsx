@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { analizarAfine } from '../dominio/afine'
 import { analizarAreas } from '../dominio/areas'
 import { analizarAcero } from '../dominio/acero'
+import { analizarBastones, huellaDeZona } from '../dominio/bastones'
 import { analizarLongitud, CRITERIOS_LONGITUD } from '../dominio/longitud'
 import { analizarPlantilla } from '../dominio/plantilla'
 import { huellaPorEjes } from '../dominio/ejes'
@@ -21,6 +22,7 @@ const COLORES = {
   plantilla: 0xc3ccd2, // plantilla de concreto en el fondo de la cepa
   cimbra: 0xe8d3a2, // fronteras de cimbra a los lados del elemento
   acero: 0xd9674f, // elementos con su acero de refuerzo asignado
+  bastones: 0xf06292, // franjas de bastones de la losa de cimentación
   area: 0xa77bdb, // áreas de un concepto que se paga por superficie
 }
 const tipoDeRenglon = (f) => (/^Z/i.test(f.elemento) ? 'zapata' : 'trabe')
@@ -33,6 +35,7 @@ const NOMBRE_TIPO = {
   plantilla: 'Plantilla de concreto',
   cimbra: 'Cimbra (fronteras laterales)',
   acero: 'Elemento con acero (ficha)',
+  bastones: 'Bastones de losa de cimentación',
   area: 'Área',
 }
 
@@ -273,6 +276,36 @@ function piezasDeAcero(generadores = [], ejes) {
   return { piezas, sinUbicar, kg }
 }
 
+/** Bastones de losa de cimentación: cada franja (largo del bastón × ml) en planta, sobre el fondo de la losa. */
+function piezasDeBastones(generadores = []) {
+  const piezas = []
+  let sinUbicar = 0
+  let kg = 0
+  for (const g of generadores) {
+    if (g.tipo !== 'bastones' || !g.datos?.zonas || !(g.datos.kgM > 0)) continue
+    const r = analizarBastones({ zonas: g.datos.zonas, criterios: g.datos.criterios, kgM: g.datos.kgM })
+    kg += r.total
+    for (const f of r.filas) {
+      if (!f.valido || f.incluir === false) continue
+      const huella = huellaDeZona(f)
+      if (!huella) sinUbicar++
+      else
+        piezas.push({
+          huella,
+          profundidad: 0.22,
+          grosor: 0.03,
+          tipo: 'bastones',
+          nombre: f.tipo || 'Zona',
+          ubicacion: `bastón de ${fmt(f.largo)} m · ${fmt(f.ml)} ml`,
+          formula: f.formula,
+          detalle: `Varilla #${g.datos.criterios?.varilla ?? '—'}`,
+          concepto: g.concepto?.clave,
+        })
+    }
+  }
+  return { piezas, sinUbicar, kg }
+}
+
 /** Las dos paredes largas de un contorno (las que se afinan como taludes). */
 function paredesLargas(contorno) {
   const lados = contorno.map((a, i) => {
@@ -297,7 +330,7 @@ function forma([contorno, ...huecos]) {
 export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
   const caja = useRef(null)
   const motor = useRef(null) // escena, cámara y lo dibujado; se crea una vez y se reusa
-  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true, cimbra: true, acero: true })
+  const [ver, setVer] = useState({ terreno: true, ejes: true, excavacion: true, afine: true, plantilla: true, areas: true, cimbra: true, acero: true, bastones: true })
   const [sel, setSel] = useState(null) // clave de la pieza elegida con un clic
   const exc = useMemo(() => piezasDeExcavacion(generadores, ejes), [generadores, ejes])
   const afi = useMemo(() => piezasDeAfine(generadores, ejes, exc.huellas), [generadores, ejes, exc])
@@ -305,15 +338,16 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
   const are = useMemo(() => piezasDeAreas(generadores), [generadores])
   const cim = useMemo(() => piezasDeCimbra(generadores, ejes), [generadores, ejes])
   const ace = useMemo(() => piezasDeAcero(generadores, ejes), [generadores, ejes])
+  const bas = useMemo(() => piezasDeBastones(generadores), [generadores])
   // lo que se dibuja; la clave identifica la pieza aunque se vuelva a calcular al capturar
   const todas = useMemo(() => {
     const vistas = {}
-    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.cimbra ? cim.piezas : []), ...(ver.acero ? ace.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
+    return [...(ver.excavacion ? exc.piezas : []), ...(ver.afine ? afi.piezas : []), ...(ver.plantilla ? pla.piezas : []), ...(ver.cimbra ? cim.piezas : []), ...(ver.acero ? ace.piezas : []), ...(ver.bastones ? bas.piezas : []), ...(ver.areas ? are.piezas : [])].map((p) => {
       const base = `${p.tipo}|${p.concepto}|${p.nombre}|${p.ubicacion}`
       const n = (vistas[base] = (vistas[base] ?? 0) + 1)
       return { ...p, clave: n > 1 ? `${base}|${n}` : base }
     })
-  }, [exc, afi, pla, cim, ace, are, ver.excavacion, ver.afine, ver.plantilla, ver.cimbra, ver.acero, ver.areas])
+  }, [exc, afi, pla, cim, ace, bas, are, ver.excavacion, ver.afine, ver.plantilla, ver.cimbra, ver.acero, ver.bastones, ver.areas])
 
   // 1) escena, cámara, controles y selección: una sola vez
   useEffect(() => {
@@ -427,7 +461,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       return geo
     }
     const hayExcavacion = todas.length > 0
-    const conAfine = todas.some((p) => p.tipo === 'afine' || p.tipo === 'cimbra' || p.tipo === 'acero') // piezas por dentro de la cepa
+    const conAfine = todas.some((p) => p.tipo === 'afine' || p.tipo === 'cimbra' || p.tipo === 'acero' || p.tipo === 'bastones') // piezas por dentro de la cepa
 
     const v = terreno?.vertices
     if (v?.length >= 3 && ver.terreno) {
@@ -454,7 +488,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
       for (const e of hs) contenido.add(etiqueta(e.nombre, x1 - sobra - 0.6, -e.pos))
     }
     // con el afine visible la excavación se aclara para que se vean el fondo y las paredes
-    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'cimbra' || tipo === 'acero' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
+    const opacidad = (tipo) => (tipo === 'afine' || tipo === 'plantilla' || tipo === 'cimbra' || tipo === 'acero' || tipo === 'bastones' || tipo === 'area' ? 0.9 : conAfine ? 0.25 : 0.85)
     const agregar = (geo, pz) => {
       const malla = new THREE.Mesh(
         geo,
@@ -463,7 +497,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
           transparent: true,
           opacity: opacidad(pz.tipo),
           side: pz.tipo === 'afine' || pz.tipo === 'cimbra' ? THREE.DoubleSide : THREE.FrontSide,
-          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'cimbra' || pz.tipo === 'acero' || pz.tipo === 'area' || !conAfine,
+          depthWrite: pz.tipo === 'afine' || pz.tipo === 'plantilla' || pz.tipo === 'cimbra' || pz.tipo === 'acero' || pz.tipo === 'bastones' || pz.tipo === 'area' || !conAfine,
         }),
       )
       malla.userData = { clave: pz.clave, tipo: pz.tipo }
@@ -566,6 +600,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
         {afi.area > 0 && casilla('afine', `Afine ${fmt(afi.area)} m²`)}
         {pla.area > 0 && casilla('plantilla', `Plantilla ${fmt(pla.area)} m²`)}
         {ace.kg > 0 && casilla('acero', `Acero ${fmt(ace.kg)} kg`)}
+        {bas.kg > 0 && casilla('bastones', `Bastones ${fmt(bas.kg)} kg`)}
         {cim.ml > 0 && casilla('cimbra', `Cimbra ${fmt(cim.ml)} ml`)}
         {are.area > 0 && casilla('areas', `Áreas ${fmt(are.area)} m²`)}
         {terreno?.area > 0 && (
@@ -590,6 +625,7 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
             {ver.afine && afi.piezas.length > 0 && muestra(COLORES.afine, 'Afine: fondo y taludes')}
             {ver.plantilla && pla.piezas.length > 0 && muestra(COLORES.plantilla, 'Plantilla de concreto')}
             {ver.acero && ace.piezas.length > 0 && muestra(COLORES.acero, 'Elemento con acero (ficha)')}
+            {ver.bastones && bas.piezas.length > 0 && muestra(COLORES.bastones, 'Bastones de losa de cimentación')}
             {ver.cimbra && cim.piezas.length > 0 && muestra(COLORES.cimbra, 'Cimbra: fronteras laterales')}
             {ver.areas && are.piezas.length > 0 && muestra(COLORES.area, 'Áreas (membrana, firme…)')}
           </div>
@@ -598,6 +634,11 @@ export default function Visor3D({ terreno, ejes, generadores, altura = 360 }) {
         {ver.acero && ace.sinUbicar > 0 && (
           <p className="pointer-events-none absolute bottom-10 left-3 text-[11px]" style={{ color: '#f0b866' }}>
             {ace.sinUbicar} tramo(s) de acero sin ubicación en planta: suman a los kg pero no se dibujan.
+          </p>
+        )}
+        {ver.bastones && bas.sinUbicar > 0 && (
+          <p className="pointer-events-none absolute bottom-16 left-3 text-[11px]" style={{ color: '#f0b866' }}>
+            {bas.sinUbicar} zona(s) de bastones sin ubicación en planta: suman a los kg pero no se dibujan.
           </p>
         )}
         {ver.cimbra && cim.sinUbicar > 0 && (
@@ -629,7 +670,7 @@ function FichaPieza({ pieza }) {
       </span>
       <b className="text-sm">{pieza.nombre}</b>
       {pieza.ubicacion && <span style={{ color: '#a9b8b1' }}>{pieza.ubicacion}</span>}
-      {pieza.tipo !== 'cimbra' && pieza.tipo !== 'acero' && (
+      {pieza.tipo !== 'cimbra' && pieza.tipo !== 'acero' && pieza.tipo !== 'bastones' && (
         <span className="num" style={{ color: '#a9b8b1' }}>
           Profundidad {fmt(pieza.profundidad)} m
         </span>

@@ -24,6 +24,21 @@ const ES_EJE = /^(?:EJE\s*)?(?:[A-Z]{1,2}-?\d{1,3}'?|\d{1,3}'?|[A-Z]{1,2}'?)$/i
  * `factor` pasa las unidades del dibujo a metros.
  */
 export function leerEjesDxf(texto, factor = 1) {
+  return plantasDeEjes(texto, factor)
+    .map(({ verticales, horizontales }) => ({ verticales, horizontales }))
+    .filter((p, i, xs) => xs.findIndex((q) => firma(q) === firma(p)) === i) // la misma planta repetida en otro lugar del dibujo
+}
+
+/**
+ * Todas las plantas del DXF, también las copias de la misma planta en otros lugares del dibujo,
+ * cada una con su `origen` (donde cae su 0,0: primer eje vertical y primer eje horizontal).
+ * Sirve para llevar a coordenadas del proyecto lo que se dibujó sobre una copia.
+ */
+export function plantasDeEjesDxf(texto, factor = 1) {
+  return plantasDeEjes(texto, factor).map((p) => ({ ...p, origen: { x: p.verticales[0].pos, y: p.horizontales[0].pos } }))
+}
+
+function plantasDeEjes(texto, factor) {
   const dxf = new DxfParser().parseSync(texto)
   const ents = dxf?.entities ?? []
   const deEjes = (e) => /eje/i.test(e.layer ?? '')
@@ -88,7 +103,6 @@ export function leerEjesDxf(texto, factor = 1) {
     .map((g) => ({ verticales: ordenar(g.verticales), horizontales: ordenar(g.horizontales) }))
     .filter((p) => p.verticales.length >= 2 && p.horizontales.length >= 2)
     .sort((a, b) => b.verticales.length + b.horizontales.length - (a.verticales.length + a.horizontales.length))
-    .filter((p, i, xs) => xs.findIndex((q) => firma(q) === firma(p)) === i) // la misma planta repetida en otro lugar del dibujo
 }
 const firma = (p) => [...p.verticales, ...p.horizontales].map((e) => e.nombre).join(',')
 

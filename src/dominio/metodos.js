@@ -126,6 +126,22 @@ export const METODOS = {
     ],
     criterios: 'Ninguno propio: todo lo de la oficina (recubrimiento, ganchos, desperdicio) está en la ficha. Para otra separación u otro armado se crea un tipo nuevo en la ficha de zapata corrida.',
   },
+  bastones: {
+    id: 'bastones',
+    nombre: 'Bastones de losa de cimentación',
+    aplica: 'Acero de las losas de cimentación colindante (CC) e intermedia (CI): el estructural pide malla arriba y bayonetas abajo, y en obra se dejan bastones en lugar de bayonetas.',
+    unidad: 'kg',
+    pasos: [
+      'Cada bastón mide el claro ÷ 4 (se redondea a una medida práctica: 1.1 o 1.05 en lugar de 1.0387) y se coloca a lo largo de una franja de la losa.',
+      'Cada franja es un rectángulo dibujado en el plano: su lado corto es el largo del bastón y el largo, los ml de la franja. Se importan del DXF por capa y color, o se capturan a mano.',
+      'Las franjas con el mismo largo de bastón forman un tipo (CC-1, CC-2… CI-1, CI-2…). Cada concepto toma las de su grupo: CC o CI.',
+      'Varillas por metro = 1.00 ÷ separación + 1, redondeado hacia arriba (7.67 → 8), o el número que se capture. Cada bastón lleva una escuadra a 90° de 5 cm. Kg de una franja = ml × varillas por metro × (largo + escuadra) × kg/m × (1 + desperdicio).',
+      'En CI (intermedia) el bastón cubre los dos claros, con el claro ÷ 4 hacia cada habitación: el rectángulo ya los abarca, así que su largo es el del bastón completo.',
+      'Cantidad del generador = Σ kg de las franjas marcadas; se guarda también el desglose por tipo y por diámetro. Se compara con Neodata.',
+      'En el 3D cada franja se dibuja en planta, a su nivel, en cuanto se importa o se corrige.',
+    ],
+    criterios: 'Editables en el análisis: varilla, separación (0.15), sumar una varilla y redondear hacia arriba (8 por metro), varillas por metro capturadas, escuadra (5 cm, una por bastón) y desperdicio (3 %). Neodata usa 7 varillas por metro y sin escuadra.',
+  },
 }
 
 /** Resumen en una línea de un análisis de suma de áreas guardado. */
@@ -144,6 +160,14 @@ export function origenAcero(datos) {
   const usados = (datos.tramos ?? []).filter((t) => t.incluir !== false)
   const f = datos.ficha
   return `${datos.elemento ?? 'Elemento'} · ${usados.length} tramos × ${Number(f.kgMl).toFixed(6)} kg/ml de su ficha v${f.version} (${f.estado})`
+}
+
+/** Resumen en una línea de un análisis de bastones de losa guardado. */
+export function origenBastones(datos) {
+  if (!datos?.zonas) return null
+  const usadas = datos.zonas.filter((z) => z.incluir !== false)
+  const tipos = [...new Set(usadas.map((z) => (z.tipo || '').trim()).filter(Boolean))]
+  return `${usadas.length} zonas (${tipos.join(', ') || 'sin tipo'}) · varilla #${datos.criterios?.varilla ?? '—'}`
 }
 
 /** Resumen en una línea de un análisis de longitud guardado. */

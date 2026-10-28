@@ -338,6 +338,7 @@ const ANALISIS = {
   areas: { nombre: 'Suma de áreas', detalle: 'Membrana, afine para firme, firmes… se eligen las áreas que entran' },
   longitud: { nombre: 'Longitud de elementos', detalle: 'Cimbra de zapatas corridas, de trabes de liga… por metro lineal' },
   acero_ficha: { nombre: 'Acero por ficha', detalle: 'ml del elemento × kg/ml de su ficha (ZC-01, ZC-02, tipos nuevos…)' },
+  bastones: { nombre: 'Bastones de losa de cimentación', detalle: 'CC y CI: franjas con su largo de bastón (claro ÷ 4) y sus ml' },
 }
 
 // Sugerencia según de qué es el concepto (el usuario siempre puede cambiarla)
@@ -356,6 +357,8 @@ const sugerido = (c) =>
       ? 'excavacion'
       : /^acero de refuerzo en zapata corrida/i.test(c.descripcion)
         ? 'acero_ficha'
+        : /^acero de refuerzo en (losa de cimentaci[oó]n|cimentaci[oó]n colindante)/i.test(c.descripcion)
+          ? 'bastones'
         : /zapata corrida/i.test(c.descripcion)
           ? 'zapata_corrida'
           : null
